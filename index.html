@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🎉 Fun Fact Party</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #6d28d9, #ec4899, #f97316);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .screen { width: 100%; max-width: 600px; text-align: center; }
+  h1 { font-size: clamp(2rem, 6vw, 3.5rem); font-weight: 900; margin-bottom: 12px; text-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+  h2 { font-size: 1.5rem; margin-bottom: 16px; }
+  p { font-size: 1.1rem; opacity: 0.95; margin-bottom: 20px; }
+  .card { background: rgba(255,255,255,0.95); color: #333; border-radius: 24px; padding: 32px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); margin: 20px auto; }
+  .qr-card { background: white; padding: 24px; border-radius: 24px; display: inline-block; margin: 16px 0; }
+  input, textarea { width: 100%; padding: 14px 16px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 1rem; font-family: inherit; margin-bottom: 16px; outline: none; }
+  input:focus, textarea:focus { border-color: #8b5cf6; }
+  textarea { min-height: 100px; resize: vertical; }
+  label { display: block; font-weight: 600; margin-bottom: 6px; text-align: left; color: #374151; }
+  button { padding: 14px 28px; border: none; border-radius: 999px; font-size: 1.1rem; font-weight: 800; cursor: pointer; transition: transform 0.15s; font-family: inherit; }
+  button:hover:not(:disabled) { transform: scale(1.04); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: linear-gradient(135deg, #8b5cf6, #ec4899); color: white; box-shadow: 0 8px 20px rgba(139,92,246,0.4); }
+  .btn-white { background: white; color: #6d28d9; box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+  .btn-ghost { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); }
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
+  .name-pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+  .pill { background: rgba(255,255,255,0.25); padding: 6px 14px; border-radius: 999px; font-size: 0.95rem; font-weight: 500; }
+  .url-box { font-family: monospace; background: rgba(0,0,0,0.3); padding: 8px 14px; border-radius: 8px; display: inline-block; margin: 12px 0; word-break: break-all; font-size: 0.9rem; }
+  .fact-display { font-size: clamp(1.5rem, 4vw, 2.5rem); font-weight: 700; line-height: 1.4; padding: 40px 20px; animation: pop 0.5s ease; }
+  .name-display { font-size: clamp(2rem, 6vw, 4rem); font-weight: 900; margin-top: 20px; animation: pop 0.5s ease; color: #fef08a; text-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+  @keyframes pop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .role-buttons { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-top: 24px; }
+  .toggle-link { color: white; opacity: 0.7; text-decoration: underline; cursor: pointer; font-size: 0.85rem; margin-top: 24px; display: inline-block; background: none; border: none; }
+  .counter { font-size: 0.95rem; opacity: 0.85; margin-top: 16px; }
+  a { text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="screen" id="app"></div>
+
+<script>
+// =============== PASTE YOUR SUPABASE VALUES BELOW ===============
+const SUPABASE_URL = "https://mybyzezcslrdkrvlfwoe.supabase.co";
+const SUPABASE_KEY = "sb_publishable_War1eVw6Sp_gcQ_nf8iKbg_u6Pn3t_q";
+// ================================================================
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+const app = document.getElementById("app");
+
+const params = new URLSearchParams(window.location.search);
+const isHost = params.get("host") === "1";
+const isPlayer = params.get("play") === "1";
+
+let submissions = [];
+let gameState = null;
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+async function loadSubmissions() {
+  const { data } = await db.from("submissions").select("*").order("created_at");
+  submissions = data || [];
+}
+async function loadGameState() {
+  const { data } = await db.from("game_state").select("*").eq("id", 1).single();
+  gameState = data;
+}
+
+function renderLanding() {
+  app.innerHTML = `
+    <h1>🎉 Fun Fact Party</h1>
+    <p>Submit a fun fact. Reveal who said it. Hilarity ensues.</p>
+    <div class="role-buttons">
+      <a href="?play=1"><button class="btn-white">🙋 I'm a Player</button></a>
+      <a href="?host=1"><button class="btn-ghost">🎤 I'm the Host</button></a>
+    </div>
+  `;
+}
+
+function renderPlayer() {
+  if (gameState && gameState.phase === "revealing") {
+    app.innerHTML = `<h1>🎬 Game in progress!</h1><p>Look up at the host's screen 👀</p>`;
+    return;
+  }
+  app.innerHTML = `
+    <div class="card">
+      <h1 style="color:#6d28d9;">Drop a fun fact 🎉</h1>
+      <p style="color:#6b7280;">Something surprising about you!</p>
+      <form id="submit-form">
+        <label>Your name</label>
+        <input id="name" maxlength="40" placeholder="e.g. Alex" required />
+        <label>Fun fact about you</label>
+        <textarea id="fact" maxlength="300" placeholder="I once met a llama in Peru..." required></textarea>
+        <button type="submit" class="btn-primary" style="width:100%;">Submit 🚀</button>
+      </form>
+    </div>
+  `;
+  document.getElementById("submit-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("name").value.trim();
+    const fact = document.getElementById("fact").value.trim();
+    if (!name || !fact) return;
+    const { error } = await db.from("submissions").insert({ name, fact });
+    if (error) { alert("Oops: " + error.message); return; }
+    app.innerHTML = `
+      <h1>✅ You're in!</h1>
+      <p>Your fun fact is locked and loaded.</p>
+      <button class="btn-ghost" onclick="location.reload()">Submit another</button>
+    `;
+  });
+}
+
+function renderHost() {
+  if (!gameState) { app.innerHTML = `<p>Loading...</p>`; return; }
+
+  if (gameState.phase === "collecting") {
+    const playUrl = window.location.origin + window.location.pathname + "?play=1";
+    const pills = submissions.map(s => `<span class="pill">${escapeHtml(s.name)}</span>`).join("");
+    app.innerHTML = `
+      <h1>🎉 Fun Fact Party</h1>
+      <p>Scan to join the game</p>
+      <div class="qr-card"><canvas id="qr"></canvas></div>
+      <div class="url-box">${playUrl}</div>
+      <h2>👥 ${submissions.length} submission${submissions.length === 1 ? "" : "s"}</h2>
+      <div class="name-pills">${pills}</div>
+      <div class="btn-row">
+        <button class="btn-white" id="start-btn" ${submissions.length < 2 ? "disabled" : ""}>🎬 Start the Game</button>
+      </div>
+      <br/>
+      <button class="toggle-link" id="reset-link">Reset everything</button>
+    `;
+    QRCode.toCanvas(document.getElementById("qr"), playUrl, { width: 260, margin: 1 });
+    document.getElementById("start-btn").addEventListener("click", startGame);
+    document.getElementById("reset-link").addEventListener("click", resetGame);
+    return;
+  }
+
+  // REVEALING PHASE
+  const current = submissions.find(s => s.id === gameState.current_submission_id);
+  const remaining = submissions.filter(s => !s.revealed).length;
+  const allDone = submissions.length > 0 && submissions.every(s => s.revealed) && !current;
+
+  if (allDone) {
+    app.innerHTML = `
+      <h1>🏁 That's everyone!</h1>
+      <p>Hope you laughed. 😄</p>
+      <div class="btn-row">
+        <button class="btn-white" id="reset-btn">Play Again (clear all)</button>
+      </div>
+    `;
+    document.getElementById("reset-btn").addEventListener("click", resetGame);
+    return;
+  }
+
+  if (!current) {
+    app.innerHTML = `<p>Picking next fact...</p>`;
+    pickNextRandom();
+    return;
+  }
+
+  app.innerHTML = `
+    <div class="fact-display">"${escapeHtml(current.fact)}"</div>
+    ${gameState.show_name ? `<div class="name-display">— ${escapeHtml(current.name)}</div>` : ""}
+    <div class="counter">${remaining} fact${remaining === 1 ? "" : "s"} remaining</div>
+    <div class="btn-row">
+      ${!gameState.show_name
+        ? `<button class="btn-white" id="reveal-btn">👀 Reveal Name</button>`
+        : `<button class="btn-white" id="next-btn">➡️ Next Fact</button>`}
+    </div>
+    <br/>
+    <button class="toggle-link" id="reset-link">Reset everything</button>
+  `;
+  if (!gameState.show_name) {
+    document.getElementById("reveal-btn").addEventListener("click", revealName);
+  } else {
+    document.getElementById("next-btn").addEventListener("click", nextRound);
+  }
+  document.getElementById("reset-link").addEventListener("click", resetGame);
+}
+
+async function startGame() {
+  await db.from("game_state").update({ phase: "revealing", current_submission_id: null, show_name: false }).eq("id", 1);
+  await pickNextRandom();
+}
+
+async function pickNextRandom() {
+  await loadSubmissions();
+  const unrevealed = submissions.filter(s => !s.revealed);
+  if (unrevealed.length === 0) {
+    await db.from("game_state").update({ current_submission_id: null, show_name: false }).eq("id", 1);
+    return;
+  }
+  const pick = unrevealed[Math.floor(Math.random() * unrevealed.length)];
+  await db.from("game_state").update({ current_submission_id: pick.id, show_name: false }).eq("id", 1);
+}
+
+async function revealName() {
+  await db.from("game_state").update({ show_name: true }).eq("id", 1);
+}
+
+async function nextRound() {
+  if (gameState && gameState.current_submission_id) {
+    await db.from("submissions").update({ revealed: true }).eq("id", gameState.current_submission_id);
+  }
+  await pickNextRandom();
+}
+
+async function resetGame() {
+  if (!confirm("Reset everything? This deletes all submissions.")) return;
+  await db.from("submissions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await db.from("game_state").update({ phase: "collecting", current_submission_id: null, show_name: false }).eq("id", 1);
+}
+
+async function refresh() {
+  await Promise.all([loadSubmissions(), loadGameState()]);
+  if (isHost) renderHost();
+  else if (isPlayer) renderPlayer();
+  else renderLanding();
+}
+
+// Subscribe to realtime updates
+db.channel("party")
+  .on("postgres_changes", { event: "*", schema: "public", table: "submissions" }, refresh)
+  .on("postgres_changes", { event: "*", schema: "public", table: "game_state" }, refresh)
+  .subscribe();
+
+refresh();
+</script>
+</body>
+</html>
