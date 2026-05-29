@@ -4,8 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>🎉 Fun Fact Party</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/supabase-js/2.39.7/supabase.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -24,6 +23,7 @@
   p { font-size: 1.1rem; opacity: 0.95; margin-bottom: 20px; }
   .card { background: rgba(255,255,255,0.95); color: #333; border-radius: 24px; padding: 32px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); margin: 20px auto; }
   .qr-card { background: white; padding: 24px; border-radius: 24px; display: inline-block; margin: 16px 0; }
+  .qr-card img, .qr-card canvas { display: block; }
   input, textarea { width: 100%; padding: 14px 16px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 1rem; font-family: inherit; margin-bottom: 16px; outline: none; }
   input:focus, textarea:focus { border-color: #8b5cf6; }
   textarea { min-height: 100px; resize: vertical; }
@@ -56,10 +56,43 @@
 const SUPABASE_URL = "https://mybyzezcslrdkrvlfwoe.supabase.co";
 const SUPABASE_KEY = "sb_publishable_War1eVw6Sp_gcQ_nf8iKbg_u6Pn3t_q";
 // ================================================================
-const { createClient } = supabase;
-const db = createClient(SUPABASE_URL, SUPABASE_KEY);
-const app = document.getElementById("app");
 
+// --- Plain fetch wrapper for Supabase REST API (no library needed) ---
+const headers = {
+  "apikey": SUPABASE_KEY,
+  "Authorization": "Bearer " + SUPABASE_KEY,
+  "Content-Type": "application/json",
+  "Prefer": "return=representation"
+};
+
+async function sbSelect(table, query = "") {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, { headers });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+async function sbInsert(table, row) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: "POST", headers, body: JSON.stringify(row)
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+async function sbUpdate(table, query, patch) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: "PATCH", headers, body: JSON.stringify(patch)
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+async function sbDelete(table, query) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: "DELETE", headers
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
+</script>
+<script>
+const app = document.getElementById("app");
 const params = new URLSearchParams(window.location.search);
 const isHost = params.get("host") === "1";
 const isPlayer = params.get("play") === "1";
@@ -72,12 +105,11 @@ function escapeHtml(s) {
 }
 
 async function loadSubmissions() {
-  const { data } = await db.from("submissions").select("*").order("created_at");
-  submissions = data || [];
+  submissions = await sbSelect("submissions", "select=*&order=created_at.asc");
 }
 async function loadGameState() {
-  const { data } = await db.from("game_state").select("*").eq("id", 1).single();
-  gameState = data;
+  const rows = await sbSelect("game_state", "select=*&id=eq.1");
+  gameState = rows[0] || null;
 }
 
 function renderLanding() {
@@ -114,13 +146,14 @@ function renderPlayer() {
     const name = document.getElementById("name").value.trim();
     const fact = document.getElementById("fact").value.trim();
     if (!name || !fact) return;
-    const { error } = await db.from("submissions").insert({ name, fact });
-    if (error) { alert("Oops: " + error.message); return; }
-    app.innerHTML = `
-      <h1>✅ You're in!</h1>
-      <p>Your fun fact is locked and loaded.</p>
-      <button class="btn-ghost" onclick="location.reload()">Submit another</button>
-    `;
+    try {
+      await sbInsert("submissions", { name, fact });
+      app.innerHTML = `
+        <h1>✅ You're in!</h1>
+        <p>Your fun fact is locked and loaded.</p>
+        <button class="btn-ghost" onclick="location.reload()">Submit another</button>
+      `;
+    } catch (err) { alert("Oops: " + err.message); }
   });
 }
 
@@ -143,8 +176,7 @@ function renderHost() {
       <br/>
       <button class="toggle-link" id="reset-link">Reset everything</button>
     `;
-document.getElementById("qr-wrap").innerHTML = "";
-new QRCode(document.getElementById("qr-wrap"), { text: playUrl, width: 260, height: 260 });
+    new QRCode(document.getElementById("qr-wrap"), { text: playUrl, width: 260, height: 260 });
     document.getElementById("start-btn").addEventListener("click", startGame);
     document.getElementById("reset-link").addEventListener("click", resetGame);
     return;
@@ -194,7 +226,7 @@ new QRCode(document.getElementById("qr-wrap"), { text: playUrl, width: 260, heig
 }
 
 async function startGame() {
-  await db.from("game_state").update({ phase: "revealing", current_submission_id: null, show_name: false }).eq("id", 1);
+  await sbUpdate("game_state", "id=eq.1", { phase: "revealing", current_submission_id: null, show_name: false });
   await pickNextRandom();
 }
 
@@ -202,44 +234,48 @@ async function pickNextRandom() {
   await loadSubmissions();
   const unrevealed = submissions.filter(s => !s.revealed);
   if (unrevealed.length === 0) {
-    await db.from("game_state").update({ current_submission_id: null, show_name: false }).eq("id", 1);
+    await sbUpdate("game_state", "id=eq.1", { current_submission_id: null, show_name: false });
+    await refresh();
     return;
   }
   const pick = unrevealed[Math.floor(Math.random() * unrevealed.length)];
-  await db.from("game_state").update({ current_submission_id: pick.id, show_name: false }).eq("id", 1);
+  await sbUpdate("game_state", "id=eq.1", { current_submission_id: pick.id, show_name: false });
+  await refresh();
 }
 
 async function revealName() {
-  await db.from("game_state").update({ show_name: true }).eq("id", 1);
+  await sbUpdate("game_state", "id=eq.1", { show_name: true });
+  await refresh();
 }
 
 async function nextRound() {
   if (gameState && gameState.current_submission_id) {
-    await db.from("submissions").update({ revealed: true }).eq("id", gameState.current_submission_id);
+    await sbUpdate("submissions", `id=eq.${gameState.current_submission_id}`, { revealed: true });
   }
   await pickNextRandom();
 }
 
 async function resetGame() {
   if (!confirm("Reset everything? This deletes all submissions.")) return;
-  await db.from("submissions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-  await db.from("game_state").update({ phase: "collecting", current_submission_id: null, show_name: false }).eq("id", 1);
+  await sbDelete("submissions", "id=neq.00000000-0000-0000-0000-000000000000");
+  await sbUpdate("game_state", "id=eq.1", { phase: "collecting", current_submission_id: null, show_name: false });
+  await refresh();
 }
 
 async function refresh() {
-  await Promise.all([loadSubmissions(), loadGameState()]);
-  if (isHost) renderHost();
-  else if (isPlayer) renderPlayer();
-  else renderLanding();
+  try {
+    await Promise.all([loadSubmissions(), loadGameState()]);
+    if (isHost) renderHost();
+    else if (isPlayer) renderPlayer();
+    else renderLanding();
+  } catch (err) {
+    app.innerHTML = `<div class="card" style="color:#b91c1c;"><h2>⚠️ Error</h2><p>${escapeHtml(err.message)}</p><p style="font-size:0.9rem;">Check that your SUPABASE_URL and SUPABASE_KEY are filled in correctly.</p></div>`;
+  }
 }
 
-// Subscribe to realtime updates
-db.channel("party")
-  .on("postgres_changes", { event: "*", schema: "public", table: "submissions" }, refresh)
-  .on("postgres_changes", { event: "*", schema: "public", table: "game_state" }, refresh)
-  .subscribe();
-
+// Poll every 2 seconds for updates (simpler than realtime websockets, works on locked-down networks)
 refresh();
+setInterval(refresh, 2000);
 </script>
 </body>
 </html>
