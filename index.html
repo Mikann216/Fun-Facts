@@ -123,11 +123,15 @@ function renderLanding() {
   `;
 }
 
+let playerFormRendered = false;
 function renderPlayer() {
   if (gameState && gameState.phase === "revealing") {
     app.innerHTML = `<h1>🎬 Game in progress!</h1><p>Look up at the host's screen 👀</p>`;
+    playerFormRendered = false;
     return;
   }
+  if (playerFormRendered) return; // don't re-render and wipe the input
+  playerFormRendered = true;
   app.innerHTML = `
     <div class="card">
       <h1 style="color:#6d28d9;">Drop a fun fact 🎉</h1>
@@ -148,6 +152,7 @@ function renderPlayer() {
     if (!name || !fact) return;
     try {
       await sbInsert("submissions", { name, fact });
+      playerFormRendered = false;
       app.innerHTML = `
         <h1>✅ You're in!</h1>
         <p>Your fun fact is locked and loaded.</p>
@@ -156,7 +161,6 @@ function renderPlayer() {
     } catch (err) { alert("Oops: " + err.message); }
   });
 }
-
 function renderHost() {
   if (!gameState) { app.innerHTML = `<p>Loading...</p>`; return; }
 
@@ -273,9 +277,12 @@ async function refresh() {
   }
 }
 
-// Poll every 2 seconds for updates (simpler than realtime websockets, works on locked-down networks)
+// Initial load
 refresh();
-setInterval(refresh, 2000);
+// Only poll on the host view (player form shouldn't re-render and wipe input)
+if (isHost) {
+  setInterval(refresh, 2000);
+}
 </script>
 </body>
 </html>
