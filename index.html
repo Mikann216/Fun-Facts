@@ -99,7 +99,8 @@ const isPlayer = params.get("play") === "1";
 
 let submissions = [];
 let gameState = null;
-
+let lastRenderKey = "";
+ 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 }
@@ -140,7 +141,7 @@ function renderPlayer() {
         <label>Your name</label>
         <input id="name" maxlength="40" placeholder="e.g. Alex" required />
         <label>Fun fact about you</label>
-        <textarea id="fact" maxlength="300" placeholder="I once met a goat in Peru..." required></textarea>
+        <textarea id="fact" maxlength="300" placeholder="I once met a cat in Peru..." required></textarea>
         <button type="submit" class="btn-primary" style="width:100%;">Submit 🚀</button>
       </form>
     </div>
@@ -163,6 +164,16 @@ function renderPlayer() {
 }
 function renderHost() {
   if (!gameState) { app.innerHTML = `<p>Loading...</p>`; return; }
+
+  // Build a "fingerprint" of the current state — if it hasn't changed, skip re-render
+  const key = JSON.stringify({
+    phase: gameState.phase,
+    current: gameState.current_submission_id,
+    showName: gameState.show_name,
+    subs: submissions.map(s => s.id + ":" + s.revealed + ":" + s.name).join("|")
+  });
+  if (key === lastRenderKey) return;
+  lastRenderKey = key;
 
   if (gameState.phase === "collecting") {
     const playUrl = window.location.origin + window.location.pathname + "?play=1";
@@ -211,7 +222,7 @@ function renderHost() {
 
   app.innerHTML = `
     <div class="fact-display">"${escapeHtml(current.fact)}"</div>
-    ${gameState.show_name ? `<div class="name-display">— ${escapeHtml(current.name)}</div>` : ""}
+    ${gameState.show_name ? `<div class="name-display">${escapeHtml(current.name)}</div>` : ""}
     <div class="counter">${remaining} fact${remaining === 1 ? "" : "s"} remaining</div>
     <div class="btn-row">
       ${!gameState.show_name
@@ -263,6 +274,7 @@ async function resetGame() {
   if (!confirm("Reset everything? This deletes all submissions.")) return;
   await sbDelete("submissions", "id=neq.00000000-0000-0000-0000-000000000000");
   await sbUpdate("game_state", "id=eq.1", { phase: "collecting", current_submission_id: null, show_name: false });
+  lastRenderKey = "";
   await refresh();
 }
 
