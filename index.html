@@ -214,24 +214,51 @@ function renderPlayerNoRoom() {
   `;
 }
 
-function renderPlayer() {
+async function renderPlayer() {
   if (!roomCode || !gameState) { renderPlayerNoRoom(); return; }
-  if (gameState.phase === "revealing") {
-    app.innerHTML = `<h1>🎬 Game in progress!</h1><p>Look up at the host's screen 👀</p>`;
-    playerFormRendered = false;
-    stopPolling();
-    return;
-  }
-  if (playerFormRendered) return;
-  playerFormRendered = true;
 
   const idKey = `submissionId_${roomCode}`;
   const nameKey = `submissionName_${roomCode}`;
   const factKey = `submissionFact_${roomCode}`;
+
+  // Validate any saved submission against the DB (host may have reset)
   const savedId = localStorage.getItem(idKey);
+  if (savedId) {
+    const stillExists = submissions.some(s => s.id === savedId);
+    if (!stillExists) {
+      // Host reset the room — clear stale localStorage silently
+      localStorage.removeItem(idKey);
+      localStorage.removeItem(nameKey);
+      localStorage.removeItem(factKey);
+      playerFormRendered = false;
+    }
+  }
+
+  // Detect "game completed" state — all submissions revealed, no current pick
+  if (gameState.phase === "revealing") {
+    const allDone = submissions.length > 0 && submissions.every(s => s.revealed) && !gameState.current_submission_id;
+    if (allDone) {
+      app.innerHTML = `
+        <h1>🎊 Thanks for playing!</h1>
+        <p>The party's wrapped up. Hope you had fun! 😄</p>
+      `;
+      playerFormRendered = false;
+      // keep polling so we detect a host reset and re-show the form
+      return;
+    }
+    app.innerHTML = `<h1>🎬 Game in progress!</h1><p>Look up at the host's screen 👀</p>`;
+    playerFormRendered = false;
+    return;
+  }
+
+  // collecting phase — show the form (or success screen)
+  if (playerFormRendered) return;
+  playerFormRendered = true;
+
+  const refreshedSavedId = localStorage.getItem(idKey);
   const savedName = localStorage.getItem(nameKey) || "";
   const savedFact = localStorage.getItem(factKey) || "";
-  const isUpdating = !!savedId;
+  const isUpdating = !!refreshedSavedId;
 
   app.innerHTML = `
     <div class="card">
@@ -241,7 +268,7 @@ function renderPlayer() {
         <label>Your name</label>
         <input id="name" maxlength="40" placeholder="e.g. Alex" required value="${escapeHtml(savedName)}" />
         <label>Fun fact about you</label>
-        <textarea id="fact" maxlength="300" placeholder="I once met a llama in Japan..." required>${escapeHtml(savedFact)}</textarea>
+        <textarea id="fact" maxlength="300" placeholder="I once met a llama in iceland..." required>${escapeHtml(savedFact)}</textarea>
         <button type="submit" class="btn-primary" style="width:100%;">${isUpdating ? "Update 💾" : "Submit 🚀"}</button>
         ${isUpdating ? `<button type="button" id="clear-btn" class="toggle-link" style="margin-top:12px;">Clear and submit as someone else</button>` : ""}
       </form>
@@ -264,7 +291,6 @@ function renderPlayer() {
       localStorage.setItem(nameKey, name);
       localStorage.setItem(factKey, fact);
       playerFormRendered = false;
-      stopPolling();
       app.innerHTML = `
         <h1>✅ ${existingId ? "Updated!" : "You're in!"}</h1>
         <p>Your fun fact is locked and loaded.</p>
@@ -424,12 +450,12 @@ async function refresh() {
   if (isHost) {
     await ensureHostRoom();
     await refresh();
-    startPolling();
+    startPolling(); // host: 2-second polling
   } else if (isPlayer) {
     await refresh();
-    if (roomCode && gameState && gameState.phase === "collecting") {
-      const submitted = localStorage.getItem(`submissionId_${roomCode}`);
-      if (!submitted) startPolling();
+    // player: always poll at 5-second intervals so they detect resets, phase changes, and game-end
+    if (roomCode) {
+      pollTimer = setInterval(refresh, 5000);
     }
   } else {
     renderLanding();
@@ -437,5 +463,5 @@ async function refresh() {
 })();
 </script>
 </body>
-<!-- Japan -->
+<!-- iceland -->
 </html>
