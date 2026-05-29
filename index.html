@@ -58,19 +58,16 @@ const SUPABASE_URL = "https://mybyzezcslrdkrvlfwoe.supabase.co";
 const SUPABASE_KEY = "sb_publishable_War1eVw6Sp_gcQ_nf8iKbg_u6Pn3t_q";
 // ================================================================
 
-// --- Profanity blocklist (4-letter codes that should never be generated) ---
 const PROFANITY_BLOCKLIST = new Set([
   "FUCK","SHIT","CUNT","COCK","DICK","TITS","CRAP","JERK","TWAT","SLUT",
   "WANK","ARSE","PISS","DAMN","HELL","TURD","BUTT","ANUS","DYKE","FAGS",
   "GOOK","KIKE","SPIC","CHNK","WOPS","JEWS","NAZI","PORN","RAPE","SUCK"
 ]);
 
-// --- Reserved codes (avoid for clarity / debugging) ---
 const RESERVED_CODES = new Set([
   "TEST","DEMO","NULL","ADMN","HOST","PLAY","ROOT","NONE","TEMP","INIT"
 ]);
 
-// --- Plain fetch wrapper for Supabase REST API (no library needed) ---
 const headers = {
   "apikey": SUPABASE_KEY,
   "Authorization": "Bearer " + SUPABASE_KEY,
@@ -104,7 +101,6 @@ async function sbDelete(table, query) {
   if (!res.ok) throw new Error(await res.text());
 }
 
-// --- Crypto-random 4-letter code generator ---
 function randomCode() {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   const buf = new Uint32Array(4);
@@ -157,7 +153,6 @@ function stopPolling() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
 }
 
-// --- Room-scoped data loaders ---
 async function loadSubmissions() {
   if (!roomCode) { submissions = []; return; }
   submissions = await sbSelect("submissions", `select=*&room_code=eq.${roomCode}&order=created_at.asc`);
@@ -168,14 +163,10 @@ async function loadGameState() {
   gameState = rows[0] || null;
 }
 
-// --- Host: ensure we have a room (create or recover) ---
 async function ensureHostRoom() {
   if (roomCode) {
     const rows = await sbSelect("game_state", `select=*&room_code=eq.${roomCode}`);
-    if (rows.length > 0) {
-      localStorage.setItem("hostRoomCode", roomCode);
-      return;
-    }
+    if (rows.length > 0) { localStorage.setItem("hostRoomCode", roomCode); return; }
     await sbInsert("game_state", { room_code: roomCode, phase: "collecting", show_name: false });
     localStorage.setItem("hostRoomCode", roomCode);
     return;
@@ -183,11 +174,7 @@ async function ensureHostRoom() {
   const saved = localStorage.getItem("hostRoomCode");
   if (saved) {
     const rows = await sbSelect("game_state", `select=*&room_code=eq.${saved}`);
-    if (rows.length > 0) {
-      roomCode = saved;
-      updateUrlWithRoom();
-      return;
-    }
+    if (rows.length > 0) { roomCode = saved; updateUrlWithRoom(); return; }
   }
   const fresh = await generateUniqueRoomCode();
   await sbInsert("game_state", { room_code: fresh, phase: "collecting", show_name: false });
@@ -197,8 +184,7 @@ async function ensureHostRoom() {
 }
 
 function updateUrlWithRoom() {
-  const newUrl = `${window.location.pathname}?host=1&room=${roomCode}`;
-  window.history.replaceState({}, "", newUrl);
+  window.history.replaceState({}, "", `${window.location.pathname}?host=1&room=${roomCode}`);
 }
 
 async function startNewParty() {
@@ -210,7 +196,6 @@ async function startNewParty() {
   await refresh();
 }
 
-// --- LANDING ---
 function renderLanding() {
   app.innerHTML = `
     <h1>🎉 Fun Fact Party</h1>
@@ -222,7 +207,6 @@ function renderLanding() {
   `;
 }
 
- // --- PLAYER ---
 function renderPlayerNoRoom() {
   app.innerHTML = `
     <h1>🤔 No room code</h1>
@@ -231,10 +215,7 @@ function renderPlayerNoRoom() {
 }
 
 function renderPlayer() {
-  if (!roomCode || !gameState) {
-    renderPlayerNoRoom();
-    return;
-  }
+  if (!roomCode || !gameState) { renderPlayerNoRoom(); return; }
   if (gameState.phase === "revealing") {
     app.innerHTML = `<h1>🎬 Game in progress!</h1><p>Look up at the host's screen 👀</p>`;
     playerFormRendered = false;
@@ -244,10 +225,10 @@ function renderPlayer() {
   if (playerFormRendered) return;
   playerFormRendered = true;
 
-  const storageKey = `submissionId_${roomCode}`;
+  const idKey = `submissionId_${roomCode}`;
   const nameKey = `submissionName_${roomCode}`;
   const factKey = `submissionFact_${roomCode}`;
-  const savedId = localStorage.getItem(storageKey);
+  const savedId = localStorage.getItem(idKey);
   const savedName = localStorage.getItem(nameKey) || "";
   const savedFact = localStorage.getItem(factKey) || "";
   const isUpdating = !!savedId;
@@ -273,12 +254,12 @@ function renderPlayer() {
     const fact = document.getElementById("fact").value.trim();
     if (!name || !fact) return;
     try {
-      const existingId = localStorage.getItem(storageKey);
+      const existingId = localStorage.getItem(idKey);
       if (existingId) {
         await sbUpdate("submissions", `id=eq.${existingId}`, { name, fact });
       } else {
         const result = await sbInsert("submissions", { name, fact, room_code: roomCode });
-        if (result && result[0]) localStorage.setItem(storageKey, result[0].id);
+        if (result && result[0]) localStorage.setItem(idKey, result[0].id);
       }
       localStorage.setItem(nameKey, name);
       localStorage.setItem(factKey, fact);
@@ -297,7 +278,7 @@ function renderPlayer() {
   if (isUpdating) {
     document.getElementById("clear-btn").addEventListener("click", () => {
       if (!confirm("Clear your saved submission from this device?")) return;
-      localStorage.removeItem(storageKey);
+      localStorage.removeItem(idKey);
       localStorage.removeItem(nameKey);
       localStorage.removeItem(factKey);
       playerFormRendered = false;
@@ -305,8 +286,6 @@ function renderPlayer() {
     });
   }
 }
-
-// --- HOST (collecting phase) ---
 function renderHost() {
   if (!roomCode || !gameState) { app.innerHTML = `<p>Loading...</p>`; return; }
 
@@ -325,8 +304,27 @@ function renderHost() {
     const pills = submissions.map(s => `<span class="pill">${escapeHtml(s.name)}</span>`).join("");
     app.innerHTML = `
       <h1>🎉 Fun Fact Party</h1>
+      <p>Scan to join the game</p>
+      <div class="qr-card"><div id="qr-wrap"></div></div>
+      <div class="room-badge">Room: ${roomCode}</div>
+      <div class="url-box">${playUrl}</div>
+      <h2>👥 ${submissions.length} submission${submissions.length === 1 ? "" : "s"}</h2>
+      <div class="name-pills">${pills}</div>
+      <div class="btn-row">
+        <button class="btn-white" id="start-btn" ${submissions.length < 2 ? "disabled" : ""}>🎬 Start the Game</button>
+      </div>
+      <br/>
+      <button class="toggle-link" id="new-party-link">🆕 Start a new party</button>
+      <button class="toggle-link" id="reset-link" style="margin-left:12px;">Reset this room</button>
+    `;
+    new QRCode(document.getElementById("qr-wrap"), { text: playUrl, width: 260, height: 260 });
+    const startBtn = document.getElementById("start-btn");
+    startBtn.addEventListener("click", () => { lockButton(startBtn); startGame(); });
+    document.getElementById("new-party-link").addEventListener("click", startNewParty);
+    document.getElementById("reset-link").addEventListener("click", resetGame);
+    return;
+  }
 
-   // --- HOST (revealing phase) ---
   const current = submissions.find(s => s.id === gameState.current_submission_id);
   const remaining = submissions.filter(s => !s.revealed).length;
   const allDone = submissions.length > 0 && submissions.every(s => s.revealed) && !current;
@@ -373,9 +371,7 @@ function renderHost() {
   }
   document.getElementById("reset-link").addEventListener("click", resetGame);
 }
-
-// --- GAME ACTIONS (all room-scoped) ---
-async function startGame() {
+ async function startGame() {
   await sbUpdate("game_state", `room_code=eq.${roomCode}`, { phase: "revealing", current_submission_id: null, show_name: false });
   await pickNextRandom();
 }
@@ -413,14 +409,8 @@ async function resetGame() {
   await refresh();
 }
 
-// --- MAIN REFRESH LOOP ---
 async function refresh() {
   try {
-    if (isHost) {
-      if (!roomCode || !localStorage.getItem("hostRoomCode") || localStorage.getItem("hostRoomCode") !== roomCode) {
-        await ensureHostRoom();
-      }
-    }
     await Promise.all([loadSubmissions(), loadGameState()]);
     if (isHost) renderHost();
     else if (isPlayer) renderPlayer();
@@ -430,7 +420,6 @@ async function refresh() {
   }
 }
 
-// --- BOOT ---
 (async () => {
   if (isHost) {
     await ensureHostRoom();
@@ -438,7 +427,7 @@ async function refresh() {
     startPolling();
   } else if (isPlayer) {
     await refresh();
-    if (roomCode && (!gameState || gameState.phase === "collecting")) {
+    if (roomCode && gameState && gameState.phase === "collecting") {
       const submitted = localStorage.getItem(`submissionId_${roomCode}`);
       if (!submitted) startPolling();
     }
@@ -450,23 +439,3 @@ async function refresh() {
 </body>
 <!-- Japan -->
 </html>
-      <p>Scan to join the game</p>
-      <div class="qr-card"><div id="qr-wrap"></div></div>
-      <div class="room-badge">Room: ${roomCode}</div>
-      <div class="url-box">${playUrl}</div>
-      <h2>👥 ${submissions.length} submission${submissions.length === 1 ? "" : "s"}</h2>
-      <div class="name-pills">${pills}</div>
-      <div class="btn-row">
-        <button class="btn-white" id="start-btn" ${submissions.length < 2 ? "disabled" : ""}>🎬 Start the Game</button>
-      </div>
-      <br/>
-      <button class="toggle-link" id="new-party-link">🆕 Start a new party</button>
-      <button class="toggle-link" id="reset-link" style="margin-left:12px;">Reset this room</button>
-    `;
-    new QRCode(document.getElementById("qr-wrap"), { text: playUrl, width: 260, height: 260 });
-    const startBtn = document.getElementById("start-btn");
-    startBtn.addEventListener("click", () => { lockButton(startBtn); startGame(); });
-    document.getElementById("new-party-link").addEventListener("click", startNewParty);
-    document.getElementById("reset-link").addEventListener("click", resetGame);
-    return;
-  }
