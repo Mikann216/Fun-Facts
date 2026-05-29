@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>🎉 Fun Fact Party</title>
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/supabase-js/2.39.7/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"</script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -133,7 +133,7 @@ function renderHost() {
     app.innerHTML = `
       <h1>🎉 Fun Fact Party</h1>
       <p>Scan to join the game</p>
-      <div class="qr-card"><canvas id="qr"></canvas></div>
+      <div class="qr-card"><div id="qr-wrap"></div></div>
       <div class="url-box">${playUrl}</div>
       <h2>👥 ${submissions.length} submission${submissions.length === 1 ? "" : "s"}</h2>
       <div class="name-pills">${pills}</div>
@@ -143,7 +143,8 @@ function renderHost() {
       <br/>
       <button class="toggle-link" id="reset-link">Reset everything</button>
     `;
-    QRCode.toCanvas(document.getElementById("qr"), playUrl, { width: 260, margin: 1 });
+document.getElementById("qr-wrap").innerHTML = "";
+new QRCode(document.getElementById("qr-wrap"), { text: playUrl, width: 260, height: 260 });
     document.getElementById("start-btn").addEventListener("click", startGame);
     document.getElementById("reset-link").addEventListener("click", resetGame);
     return;
