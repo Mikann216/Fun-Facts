@@ -268,7 +268,7 @@ async function renderPlayer() {
         <label>Your name</label>
         <input id="name" maxlength="40" placeholder="e.g. Alex" required value="${escapeHtml(savedName)}" />
         <label>Fun fact about you</label>
-        <textarea id="fact" maxlength="300" placeholder="I once met a llama in iceland..." required>${escapeHtml(savedFact)}</textarea>
+        <textarea id="fact" maxlength="300" placeholder="I once met a llama in Iceland..." required>${escapeHtml(savedFact)}</textarea>
         <button type="submit" class="btn-primary" style="width:100%;">${isUpdating ? "Update 💾" : "Submit 🚀"}</button>
         ${isUpdating ? `<button type="button" id="clear-btn" class="toggle-link" style="margin-top:12px;">Clear and submit as someone else</button>` : ""}
       </form>
@@ -463,5 +463,5 @@ async function refresh() {
 })();
 </script>
 </body>
-<!-- iceland -->
+<!-- Iceland -->
 </html>
