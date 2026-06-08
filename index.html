@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>🎉 Fun Fact Party</title>
+<title>🎉 Fun Fact Trivia</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -13,38 +13,50 @@
     background: linear-gradient(135deg, #6d28d9, #ec4899, #f97316);
     color: white;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     padding: 20px;
   }
-  .screen { width: 100%; max-width: 600px; text-align: center; }
-  h1 { font-size: clamp(2rem, 6vw, 3.5rem); font-weight: 900; margin-bottom: 12px; text-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-  h2 { font-size: 1.5rem; margin-bottom: 16px; }
-  p { font-size: 1.1rem; opacity: 0.95; margin-bottom: 20px; }
-  .card { background: rgba(255,255,255,0.95); color: #333; border-radius: 24px; padding: 32px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); margin: 20px auto; }
-  .qr-card { background: white; padding: 24px; border-radius: 24px; display: inline-block; margin: 16px 0; }
-  .qr-card img, .qr-card canvas { display: block; }
-  input, textarea { width: 100%; padding: 14px 16px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 1rem; font-family: inherit; margin-bottom: 16px; outline: none; }
+  .screen { width: 100%; max-width: 720px; text-align: center; padding: 20px 0; }
+  h1 { font-size: clamp(1.8rem, 5vw, 3rem); font-weight: 900; margin-bottom: 12px; text-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+  h2 { font-size: 1.4rem; margin-bottom: 14px; }
+  h3 { font-size: 1.1rem; margin: 16px 0 8px; text-align: left; }
+  p { font-size: 1.05rem; opacity: 0.95; margin-bottom: 16px; }
+  .card { background: rgba(255,255,255,0.95); color: #333; border-radius: 20px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); margin: 16px auto; text-align: left; }
+  .card h1, .card h2, .card h3 { color: #6d28d9; text-shadow: none; }
+  .qr-card { background: white; padding: 20px; border-radius: 20px; display: inline-block; margin: 12px 0; }
+  input, textarea {
+    width: 100%; padding: 12px 14px; border: 2px solid #e5e7eb; border-radius: 10px;
+    font-size: 1rem; font-family: inherit; margin-bottom: 12px; outline: none;
+    color: #333; background: white;
+  }
+  textarea { min-height: 120px; resize: vertical; font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 0.9rem; }
   input:focus, textarea:focus { border-color: #8b5cf6; }
-  textarea { min-height: 100px; resize: vertical; }
-  label { display: block; font-weight: 600; margin-bottom: 6px; text-align: left; color: #374151; }
-  button { padding: 14px 28px; border: none; border-radius: 999px; font-size: 1.1rem; font-weight: 800; cursor: pointer; transition: transform 0.15s; font-family: inherit; }
+  label { display: block; font-weight: 600; margin-bottom: 4px; color: #374151; font-size: 0.95rem; }
+  .field-help { font-size: 0.85rem; color: #6b7280; margin: -8px 0 8px; }
+  button {
+    padding: 12px 24px; border: none; border-radius: 999px; font-size: 1rem;
+    font-weight: 800; cursor: pointer; transition: transform 0.15s; font-family: inherit;
+  }
   button:hover:not(:disabled) { transform: scale(1.04); }
   button:disabled { opacity: 0.4; cursor: not-allowed; }
   .btn-primary { background: linear-gradient(135deg, #8b5cf6, #ec4899); color: white; box-shadow: 0 8px 20px rgba(139,92,246,0.4); }
   .btn-white { background: white; color: #6d28d9; box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
   .btn-ghost { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); }
-  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
-  .name-pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
-  .pill { background: rgba(255,255,255,0.25); padding: 6px 14px; border-radius: 999px; font-size: 0.95rem; font-weight: 500; }
-  .url-box { font-family: monospace; background: rgba(0,0,0,0.3); padding: 8px 14px; border-radius: 8px; display: inline-block; margin: 12px 0; word-break: break-all; font-size: 0.9rem; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
+  .btn-row-left { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .pill { background: rgba(255,255,255,0.25); padding: 5px 12px; border-radius: 999px; font-size: 0.9rem; font-weight: 500; display: inline-block; margin: 3px; }
   .room-badge { font-family: monospace; background: rgba(0,0,0,0.3); padding: 6px 14px; border-radius: 8px; display: inline-block; margin: 8px 0; font-size: 1rem; letter-spacing: 0.2em; font-weight: 700; }
-  .fact-display { font-size: clamp(1.5rem, 4vw, 2.5rem); font-weight: 700; line-height: 1.4; padding: 40px 20px; animation: pop 0.5s ease; }
-  .name-display { font-size: clamp(2rem, 6vw, 4rem); font-weight: 900; margin-top: 20px; animation: pop 0.5s ease; color: #fef08a; text-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-  @keyframes pop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-  .role-buttons { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-top: 24px; }
-  .toggle-link { color: white; opacity: 0.7; text-decoration: underline; cursor: pointer; font-size: 0.85rem; margin-top: 12px; display: inline-block; background: none; border: none; }
-  .counter { font-size: 0.95rem; opacity: 0.85; margin-top: 16px; }
+  .url-box { font-family: monospace; background: rgba(0,0,0,0.3); padding: 6px 12px; border-radius: 8px; display: inline-block; margin: 10px 0; word-break: break-all; font-size: 0.85rem; }
+  .toggle-link { color: white; opacity: 0.8; text-decoration: underline; cursor: pointer; font-size: 0.85rem; margin-top: 10px; display: inline-block; background: none; border: none; padding: 4px 8px; }
+  .error-box { background: #fee2e2; color: #991b1b; padding: 12px 16px; border-radius: 10px; margin: 12px 0; font-size: 0.95rem; text-align: left; border-left: 4px solid #dc2626; }
+  .success-box { background: #d1fae5; color: #065f46; padding: 12px 16px; border-radius: 10px; margin: 12px 0; font-size: 0.95rem; text-align: left; border-left: 4px solid #10b981; }
+  .preview-round { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; margin: 8px 0; font-size: 0.9rem; }
+  .preview-round-num { font-weight: 700; color: #6d28d9; margin-bottom: 4px; }
+  .preview-fact { font-style: italic; color: #4b5563; margin: 4px 0; }
+  .preview-names { color: #1f2937; font-size: 0.88rem; }
+  .preview-correct { color: #059669; font-weight: 600; }
+  .matching-badge { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; margin-left: 6px; }
   a { text-decoration: none; }
 </style>
 </head>
@@ -54,8 +66,8 @@
 
 <script>
 // =============== PASTE YOUR SUPABASE VALUES BELOW ===============
-const SUPABASE_URL = "https://mybyzezcslrdkrvlfwoe.supabase.co";
-const SUPABASE_KEY = "sb_publishable_War1eVw6Sp_gcQ_nf8iKbg_u6Pn3t_q";
+const SUPABASE_URL = "https://uaayumincadkcpgvvhcb.supabase.co";
+const SUPABASE_KEY = "sb_publishable_DWc-rJ3VtOD4Xk58K4ki0w_S7T_Tdr7";
 // ================================================================
 
 const PROFANITY_BLOCKLIST = new Set([
@@ -115,7 +127,7 @@ async function generateUniqueRoomCode() {
     const code = randomCode();
     if (PROFANITY_BLOCKLIST.has(code)) continue;
     if (RESERVED_CODES.has(code)) continue;
-    const existing = await sbSelect("game_state", `select=room_code&room_code=eq.${code}`);
+    const existing = await sbSelect("rooms", `select=room_code&room_code=eq.${code}`);
     if (existing.length === 0) return code;
   }
   throw new Error("Could not generate a unique room code after 20 tries.");
@@ -128,11 +140,13 @@ const isHost = params.get("host") === "1";
 const isPlayer = params.get("play") === "1";
 let roomCode = params.get("room") || null;
 
-let submissions = [];
-let gameState = null;
-let lastRenderKey = "";
-let playerFormRendered = false;
+let room = null;          // current room row from `rooms` table
+let players = [];         // current players in this room
+let rounds = [];          // configured rounds
 let pollTimer = null;
+let lastRenderKey = "";
+let builderRendered = false;
+let playerJoinRendered = false;
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
@@ -145,39 +159,54 @@ function lockButton(btn) {
   setTimeout(() => { btn.disabled = false; btn.style.opacity = ""; }, 3000);
 }
 
-function startPolling() {
+function startPolling(intervalMs) {
   if (pollTimer) return;
-  pollTimer = setInterval(refresh, 2000);
+  pollTimer = setInterval(refresh, intervalMs);
 }
 function stopPolling() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
 }
 
-async function loadSubmissions() {
-  if (!roomCode) { submissions = []; return; }
-  submissions = await sbSelect("submissions", `select=*&room_code=eq.${roomCode}&order=created_at.asc`);
-}
-async function loadGameState() {
-  if (!roomCode) { gameState = null; return; }
-  const rows = await sbSelect("game_state", `select=*&room_code=eq.${roomCode}`);
-  gameState = rows[0] || null;
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
+// ---------- Data loaders ----------
+async function loadRoom() {
+  if (!roomCode) { room = null; return; }
+  const rows = await sbSelect("rooms", `select=*&room_code=eq.${roomCode}`);
+  room = rows[0] || null;
+}
+async function loadPlayers() {
+  if (!roomCode) { players = []; return; }
+  players = await sbSelect("players", `select=*&room_code=eq.${roomCode}&order=joined_at.asc`);
+}
+async function loadRounds() {
+  if (!roomCode) { rounds = []; return; }
+  rounds = await sbSelect("rounds", `select=*&room_code=eq.${roomCode}&order=round_number.asc`);
+}
+
+// ---------- Host: ensure room exists ----------
 async function ensureHostRoom() {
   if (roomCode) {
-    const rows = await sbSelect("game_state", `select=*&room_code=eq.${roomCode}`);
+    const rows = await sbSelect("rooms", `select=*&room_code=eq.${roomCode}`);
     if (rows.length > 0) { localStorage.setItem("hostRoomCode", roomCode); return; }
-    await sbInsert("game_state", { room_code: roomCode, phase: "collecting", show_name: false });
+    await sbInsert("rooms", { room_code: roomCode, phase: "building" });
     localStorage.setItem("hostRoomCode", roomCode);
     return;
   }
   const saved = localStorage.getItem("hostRoomCode");
   if (saved) {
-    const rows = await sbSelect("game_state", `select=*&room_code=eq.${saved}`);
+    const rows = await sbSelect("rooms", `select=*&room_code=eq.${saved}`);
     if (rows.length > 0) { roomCode = saved; updateUrlWithRoom(); return; }
   }
   const fresh = await generateUniqueRoomCode();
-  await sbInsert("game_state", { room_code: fresh, phase: "collecting", show_name: false });
+  await sbInsert("rooms", { room_code: fresh, phase: "building" });
   roomCode = fresh;
   localStorage.setItem("hostRoomCode", fresh);
   updateUrlWithRoom();
@@ -188,25 +217,467 @@ function updateUrlWithRoom() {
 }
 
 async function startNewParty() {
-  if (!confirm("Start a fresh party? Your current room will be left behind (you won't be able to return to it).")) return;
+  if (!confirm("Start a fresh party? Your current room and config will be left behind.")) return;
   localStorage.removeItem("hostRoomCode");
   roomCode = null;
   lastRenderKey = "";
+  builderRendered = false;
   await ensureHostRoom();
   await refresh();
 }
 
-function renderLanding() {
-  app.innerHTML = `
-    <h1>🎉 Fun Fact Party</h1>
-    <p>Submit a fun fact. Reveal who said it. Hilarity ensues.</p>
-    <div class="role-buttons">
-      <a href="?host=1"><button class="btn-white">🎤 I'm the Host</button></a>
-    </div>
-    <p style="margin-top:24px; font-size:0.9rem; opacity:0.8;">Players: scan the QR code shown by your host to join.</p>
-  `;
+async function fullReset() {
+  if (!confirm("Reset this room? This deletes ALL players, rounds, votes, and config for this room. Cannot be undone.")) return;
+  await sbDelete("votes", `room_code=eq.${roomCode}`);
+  await sbDelete("walkin_submissions", `room_code=eq.${roomCode}`);
+  await sbDelete("rounds", `room_code=eq.${roomCode}`);
+  await sbDelete("players", `room_code=eq.${roomCode}`);
+  await sbUpdate("rooms", `room_code=eq.${roomCode}`, {
+    phase: "building", current_round_number: 0, round_phase: "voting", walkin_count: 0
+  });
+  lastRenderKey = "";
+  builderRendered = false;
+  await refresh();
+}
+// ============================================================
+//  PARSER & VALIDATOR for the host's pasted sheet rows
+// ============================================================
+// Input: tab-separated rows (columns B-F from Google Sheets).
+// Each row: Fact \t Author \t Decoy1 \t Decoy2 \t Decoy3
+function parseSheetRows(raw) {
+  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length === 0) {
+    throw new Error("No rows found. Paste rows from your Google Sheet (columns B-F).");
+  }
+
+  const rows = [];
+  for (let i = 0; i < lines.length; i++) {
+    const cols = lines[i].split("\t").map(c => c.trim());
+    if (cols.length < 5) {
+      throw new Error(`Row ${i + 1}: expected 5 tab-separated columns (Fact, Author, Decoy1, Decoy2, Decoy3), got ${cols.length}. Did you copy from Google Sheets with tabs?`);
+    }
+    if (cols.length > 5) {
+      throw new Error(`Row ${i + 1}: too many columns (${cols.length}). Make sure you only selected columns B-F.`);
+    }
+    const [fact, author, d1, d2, d3] = cols;
+    if (!fact)   throw new Error(`Row ${i + 1}: fact is empty.`);
+    if (!author) throw new Error(`Row ${i + 1}: author is empty.`);
+    if (!d1)     throw new Error(`Row ${i + 1}: decoy 1 is empty.`);
+    if (!d2)     throw new Error(`Row ${i + 1}: decoy 2 is empty.`);
+    if (!d3)     throw new Error(`Row ${i + 1}: decoy 3 is empty.`);
+
+    const allFour = [author, d1, d2, d3];
+    const dupes = allFour.filter((n, idx) => allFour.indexOf(n) !== idx);
+    if (dupes.length > 0) {
+      throw new Error(`Row ${i + 1}: duplicate name "${dupes[0]}" among the 4 candidate names. All 4 must be different.`);
+    }
+    rows.push({ fact, author, candidates: allFour });
+  }
+  return rows;
 }
 
+function parseMatchingRowNumbers(raw, totalRows) {
+  const nums = raw.split(/[,\s]+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0)
+    .map(s => parseInt(s, 10));
+  if (nums.length !== 4) {
+    throw new Error(`Matching round needs exactly 4 row numbers, got ${nums.length}.`);
+  }
+  for (const n of nums) {
+    if (isNaN(n)) throw new Error(`Matching round: not a valid number.`);
+    if (n < 1 || n > totalRows) {
+      throw new Error(`Matching round: row ${n} is out of range (1-${totalRows}).`);
+    }
+  }
+  if (new Set(nums).size !== 4) {
+    throw new Error(`Matching round: row numbers must be unique.`);
+  }
+  return nums;
+}
+
+function parsePermutation(raw, expectedNames, label) {
+  const names = raw.split(",").map(s => s.trim()).filter(s => s.length > 0);
+  if (names.length !== 4) {
+    throw new Error(`${label}: expected 4 comma-separated names, got ${names.length}.`);
+  }
+  const expectedSet = new Set(expectedNames);
+  for (const n of names) {
+    if (!expectedSet.has(n)) {
+      throw new Error(`${label}: "${n}" is not one of the matching round authors (${expectedNames.join(", ")}).`);
+    }
+  }
+  if (new Set(names).size !== 4) {
+    throw new Error(`${label}: names must be unique (it's a permutation).`);
+  }
+  return names;
+}
+
+function buildGamePlan(sheetRaw, matchingRowsRaw, perm1Raw, perm2Raw, perm3Raw) {
+  const allRows = parseSheetRows(sheetRaw);
+  if (allRows.length < 5) {
+    throw new Error(`Need at least 5 rows total (4 for matching round + 1 single round). Got ${allRows.length}.`);
+  }
+  const matchingIdxs = parseMatchingRowNumbers(matchingRowsRaw, allRows.length).map(n => n - 1);
+
+  const matchingRows = matchingIdxs.map(i => allRows[i]);
+  const matchingAuthors = matchingRows.map(r => r.author);
+  const dupAuthors = matchingAuthors.filter((n, i) => matchingAuthors.indexOf(n) !== i);
+  if (dupAuthors.length > 0) {
+    throw new Error(`Matching round authors must be unique (found duplicate "${dupAuthors[0]}").`);
+  }
+
+  const correctPerm = matchingAuthors.slice();
+  const wrongPerms = [
+    parsePermutation(perm1Raw, matchingAuthors, "Wrong permutation 1"),
+    parsePermutation(perm2Raw, matchingAuthors, "Wrong permutation 2"),
+    parsePermutation(perm3Raw, matchingAuthors, "Wrong permutation 3")
+  ];
+  for (let i = 0; i < wrongPerms.length; i++) {
+    if (wrongPerms[i].every((n, j) => n === correctPerm[j])) {
+      throw new Error(`Wrong permutation ${i + 1} matches the correct order. It must differ.`);
+    }
+  }
+  const allPerms = [correctPerm, ...wrongPerms];
+  const allPermsKeys = allPerms.map(p => p.join("|"));
+  for (let i = 0; i < allPermsKeys.length; i++) {
+    for (let j = i + 1; j < allPermsKeys.length; j++) {
+      if (allPermsKeys[i] === allPermsKeys[j]) {
+        throw new Error(`Permutations ${i === 0 ? "(correct)" : i} and ${j} are identical. All 4 must differ.`);
+      }
+    }
+  }
+
+  // Shuffle the 4 permutations and remember the correct index
+  const tagged = allPerms.map((p, i) => ({ p, originalIdx: i }));
+  const shuffled = shuffleArray(tagged);
+  const matchingOptions = shuffled.map(s => s.p);
+  const matchingCorrectIndex = shuffled.findIndex(s => s.originalIdx === 0);
+
+  // Single rounds = all rows NOT in matchingIdxs, in pasted order
+  const matchingSet = new Set(matchingIdxs);
+  const singleRows = allRows
+    .map((r, i) => ({ r, i }))
+    .filter(x => !matchingSet.has(x.i))
+    .map(x => x.r);
+
+  const plan = [];
+  let roundNum = 1;
+  for (const sr of singleRows) {
+    plan.push({
+      round_number: roundNum++,
+      round_type: "single",
+      fact: sr.fact,
+      correct_name: sr.author,
+      candidate_names: shuffleArray(sr.candidates),
+      is_walkin: false
+    });
+  }
+  // Matching round goes last
+  plan.push({
+    round_number: roundNum++,
+    round_type: "matching",
+    matching_facts: matchingRows.map(r => ({ fact: r.fact, correct_name: r.author })),
+    matching_options: matchingOptions,
+    matching_correct_index: matchingCorrectIndex,
+    is_walkin: false
+  });
+  return plan;
+}
+
+async function saveGamePlan(plan) {
+  // Wipe any existing rounds first (in case host re-edits)
+  await sbDelete("rounds", `room_code=eq.${roomCode}`);
+  // Insert new rounds
+  const rows = plan.map(p => ({ ...p, room_code: roomCode }));
+  await sbInsert("rounds", rows);
+}
+
+async function lockAndStartLobby() {
+  await sbUpdate("rooms", `room_code=eq.${roomCode}`, { phase: "lobby" });
+  lastRenderKey = "";
+  builderRendered = false;
+  await refresh();
+}
+
+async function backToBuilder() {
+  if (!confirm("Go back to the builder? Players will return to a 'config being edited' screen until you lock again.")) return;
+  await sbUpdate("rooms", `room_code=eq.${roomCode}`, { phase: "building" });
+  lastRenderKey = "";
+  builderRendered = false;
+  await refresh();
+}
+// ============================================================
+//  TEST DATA (16 names A-P with Fact-"Name" facts)
+// ============================================================
+const TEST_DATA_SHEET = [
+  ['Fact-"Alex"',  'Alex',  'Bob',    'Carol',  'Dave'],
+  ['Fact-"Bob"',   'Bob',   'Eve',    'Frank',  'Grace'],
+  ['Fact-"Carol"', 'Carol', 'Hank',   'Iris',   'Jane'],
+  ['Fact-"Dave"',  'Dave',  'Kyle',   'Lily',   'Mark'],
+  ['Fact-"Eve"',   'Eve',   'Nora',   'Oscar',  'Pat'],
+  ['Fact-"Frank"', 'Frank', 'Alex',   'Carol',  'Hank'],
+  ['Fact-"Grace"', 'Grace', 'Bob',    'Dave',   'Iris'],
+  ['Fact-"Hank"',  'Hank',  'Eve',    'Jane',   'Kyle'],
+  ['Fact-"Iris"',  'Iris',  'Lily',   'Mark',   'Nora'],
+  ['Fact-"Jane"',  'Jane',  'Oscar',  'Pat',    'Alex'],
+  ['Fact-"Kyle"',  'Kyle',  'Bob',    'Frank',  'Grace'],
+  ['Fact-"Lily"',  'Lily',  'Carol',  'Hank',   'Iris'],
+  ['Fact-"Mark"',  'Mark',  'Dave',   'Eve',    'Jane'],
+  ['Fact-"Nora"',  'Nora',  'Frank',  'Kyle',   'Oscar'],
+  ['Fact-"Oscar"', 'Oscar', 'Alex',   'Bob',    'Pat'],
+  ['Fact-"Pat"',   'Pat',   'Carol',  'Grace',  'Lily']
+].map(r => r.join("\t")).join("\n");
+
+const TEST_DATA_MATCHING_ROWS = "13,14,15,16";
+const TEST_DATA_PERM1 = "Nora,Mark,Oscar,Pat";
+const TEST_DATA_PERM2 = "Mark,Oscar,Nora,Pat";
+const TEST_DATA_PERM3 = "Pat,Nora,Oscar,Mark";
+
+// ============================================================
+//  HOST BUILDER UI
+// ============================================================
+function renderBuilder() {
+  if (builderRendered) return;
+  builderRendered = true;
+
+  app.innerHTML = `
+    <h1>🛠️ Game Builder</h1>
+    <p>Configure your trivia game. You can edit until you lock & start.</p>
+    <div class="room-badge">Room: ${roomCode}</div>
+
+    <div class="card">
+      <h2>1. Paste rows from your Google Sheet</h2>
+      <p class="field-help">Select columns <strong>B through F</strong> in your response sheet (no header row), then copy and paste here. Each row: Fact / Author / Decoy 1 / Decoy 2 / Decoy 3, separated by tabs.</p>
+      <textarea id="sheet-input" rows="10" placeholder="Paste your tab-separated rows here..."></textarea>
+
+      <h2 style="margin-top:20px;">2. Matching round rows</h2>
+      <p class="field-help">Which 4 rows from above should be the final matching round? Enter 4 row numbers, comma-separated (e.g., <code>13,14,15,16</code>).</p>
+      <input id="matching-rows-input" placeholder="13,14,15,16" />
+
+      <h2 style="margin-top:20px;">3. Three wrong permutations for the matching round</h2>
+      <p class="field-help">For each, enter 4 names (the same 4 authors from the matching round) in some wrong order, comma-separated. The correct permutation is added automatically; all 4 options will be shuffled.</p>
+      <label>Wrong permutation 1</label>
+      <input id="perm1-input" placeholder="e.g., Nora,Mark,Oscar,Pat" />
+      <label>Wrong permutation 2</label>
+      <input id="perm2-input" placeholder="e.g., Mark,Oscar,Nora,Pat" />
+      <label>Wrong permutation 3</label>
+      <input id="perm3-input" placeholder="e.g., Pat,Nora,Oscar,Mark" />
+
+      <div class="btn-row">
+        <button class="btn-primary" id="validate-btn">✅ Validate & Preview</button>
+        <button class="btn-white" id="testdata-btn">🧪 Fill with test data</button>
+      </div>
+      <div id="builder-feedback"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="toggle-link" id="reset-link">Reset this room</button>
+      <button class="toggle-link" id="new-party-link">🆕 Start a new party</button>
+    </div>
+  `;
+
+  document.getElementById("validate-btn").addEventListener("click", onValidate);
+  document.getElementById("testdata-btn").addEventListener("click", () => {
+    document.getElementById("sheet-input").value = TEST_DATA_SHEET;
+    document.getElementById("matching-rows-input").value = TEST_DATA_MATCHING_ROWS;
+    document.getElementById("perm1-input").value = TEST_DATA_PERM1;
+    document.getElementById("perm2-input").value = TEST_DATA_PERM2;
+    document.getElementById("perm3-input").value = TEST_DATA_PERM3;
+    document.getElementById("builder-feedback").innerHTML = `<div class="success-box">🧪 Test data loaded. Click "Validate & Preview" to continue.</div>`;
+  });
+  document.getElementById("reset-link").addEventListener("click", fullReset);
+  document.getElementById("new-party-link").addEventListener("click", startNewParty);
+}
+
+function onValidate() {
+  const feedback = document.getElementById("builder-feedback");
+  feedback.innerHTML = "";
+  const sheetRaw = document.getElementById("sheet-input").value;
+  const matchingRowsRaw = document.getElementById("matching-rows-input").value;
+  const perm1Raw = document.getElementById("perm1-input").value;
+  const perm2Raw = document.getElementById("perm2-input").value;
+  const perm3Raw = document.getElementById("perm3-input").value;
+
+  let plan;
+  try {
+    plan = buildGamePlan(sheetRaw, matchingRowsRaw, perm1Raw, perm2Raw, perm3Raw);
+  } catch (err) {
+    feedback.innerHTML = `<div class="error-box">⚠️ ${escapeHtml(err.message)}</div>`;
+    return;
+  }
+
+  const previewHtml = plan.map(p => {
+    if (p.round_type === "single") {
+      return `
+        <div class="preview-round">
+          <div class="preview-round-num">Round ${p.round_number}</div>
+          <div class="preview-fact">"${escapeHtml(p.fact)}"</div>
+          <div class="preview-names">
+            Names: ${p.candidate_names.map(n =>
+              n === p.correct_name
+                ? `<span class="preview-correct">${escapeHtml(n)} ✓</span>`
+                : escapeHtml(n)
+            ).join(" · ")}
+          </div>
+        </div>
+      `;
+    } else {
+      const optsHtml = p.matching_options.map((opt, i) =>
+        `<div style="margin:4px 0;">
+          ${i === p.matching_correct_index ? "<span class='preview-correct'>✓</span> " : "&nbsp;&nbsp;"}
+          Option ${i + 1}: ${opt.map(escapeHtml).join(" / ")}
+        </div>`
+      ).join("");
+      const factsHtml = p.matching_facts.map(f =>
+        `<div style="margin:2px 0;"><em>"${escapeHtml(f.fact)}"</em> → <strong>${escapeHtml(f.correct_name)}</strong></div>`
+      ).join("");
+      return `
+        <div class="preview-round">
+          <div class="preview-round-num">Round ${p.round_number} <span class="matching-badge">MATCHING</span></div>
+          ${factsHtml}
+          <div style="margin-top:6px;">${optsHtml}</div>
+        </div>
+      `;
+    }
+  }).join("");
+
+  feedback.innerHTML = `
+    <div class="success-box">✅ Looks good! ${plan.length} rounds parsed. Review the preview below before locking.</div>
+    <div style="margin-top:12px;">${previewHtml}</div>
+    <div class="btn-row">
+      <button class="btn-primary" id="save-lock-btn">🔒 Save & Lock (open lobby)</button>
+    </div>
+  `;
+
+  document.getElementById("save-lock-btn").addEventListener("click", async (e) => {
+    lockButton(e.target);
+    try {
+      await saveGamePlan(plan);
+      await lockAndStartLobby();
+    } catch (err) {
+      feedback.innerHTML += `<div class="error-box">⚠️ Save failed: ${escapeHtml(err.message)}</div>`;
+    }
+  });
+}
+// ============================================================
+//  HOST LOBBY UI (config locked, waiting for game start)
+// ============================================================
+function renderHostLobby() {
+  const playUrl = `${window.location.origin}${window.location.pathname}?play=1&room=${roomCode}`;
+  const pills = players.map(p => `<span class="pill">${escapeHtml(p.name)}</span>`).join("");
+  const totalRounds = rounds.length;
+
+  app.innerHTML = `
+    <h1>🎉 Lobby</h1>
+    <p>Players: scan to join. Game starts when you click below.</p>
+    <div class="qr-card"><div id="qr-wrap"></div></div>
+    <div class="room-badge">Room: ${roomCode}</div>
+    <div class="url-box">${playUrl}</div>
+    <h2>👥 ${players.length} player${players.length === 1 ? "" : "s"} joined</h2>
+    <div>${pills || "<em style='opacity:0.7'>No one yet — share the QR code!</em>"}</div>
+    <p style="margin-top:16px;">📋 ${totalRounds} round${totalRounds === 1 ? "" : "s"} configured</p>
+    <div class="btn-row">
+      <button class="btn-white" id="start-game-btn" ${players.length < 1 ? "disabled" : ""}>🎬 Start Game</button>
+      <button class="btn-ghost" id="back-builder-btn">⬅️ Back to builder</button>
+    </div>
+    <br/>
+    <button class="toggle-link" id="reset-link">Reset this room</button>
+    <button class="toggle-link" id="new-party-link" style="margin-left:12px;">🆕 New party</button>
+  `;
+
+  new QRCode(document.getElementById("qr-wrap"), { text: playUrl, width: 240, height: 240 });
+
+  document.getElementById("start-game-btn").addEventListener("click", async (e) => {
+    lockButton(e.target);
+    // Phase 3 will implement the actual game UI; for now we just transition phase
+    // so we can verify the lobby → playing transition works end-to-end.
+    await sbUpdate("rooms", `room_code=eq.${roomCode}`, {
+      phase: "playing", current_round_number: 1, round_phase: "voting"
+    });
+    lastRenderKey = "";
+    await refresh();
+  });
+  document.getElementById("back-builder-btn").addEventListener("click", backToBuilder);
+  document.getElementById("reset-link").addEventListener("click", fullReset);
+  document.getElementById("new-party-link").addEventListener("click", startNewParty);
+}
+
+// ============================================================
+//  HOST PLAYING UI — placeholder until Phase 3
+// ============================================================
+function renderHostPlayingPlaceholder() {
+  app.innerHTML = `
+    <h1>🎮 Game in progress</h1>
+    <p>Round ${room.current_round_number} of ${rounds.length}</p>
+    <div class="card" style="text-align:center;">
+      <h2>Phase 3 will live here</h2>
+      <p style="color:#6b7280;">Voting, reveal, bar chart, scoring — coming next.</p>
+    </div>
+    <div class="btn-row">
+      <button class="btn-white" id="back-lobby-btn">⬅️ Back to lobby</button>
+      <button class="toggle-link" id="reset-link">Reset this room</button>
+    </div>
+  `;
+  document.getElementById("back-lobby-btn").addEventListener("click", async () => {
+    await sbUpdate("rooms", `room_code=eq.${roomCode}`, {
+      phase: "lobby", current_round_number: 0, round_phase: "voting"
+    });
+    lastRenderKey = "";
+    await refresh();
+  });
+  document.getElementById("reset-link").addEventListener("click", fullReset);
+}
+
+// ============================================================
+//  HOST FINISHED UI — placeholder until Phase 6
+// ============================================================
+function renderHostFinishedPlaceholder() {
+  app.innerHTML = `
+    <h1>🏁 Game finished</h1>
+    <p>Leaderboard will live here in Phase 6.</p>
+    <div class="btn-row">
+      <button class="btn-white" id="reset-link">Reset this room</button>
+    </div>
+  `;
+  document.getElementById("reset-link").addEventListener("click", fullReset);
+}
+
+// ============================================================
+//  HOST ROUTER
+// ============================================================
+function renderHost() {
+  if (!roomCode || !room) { app.innerHTML = `<p>Loading...</p>`; return; }
+
+  // Use a render key to avoid re-rendering on every poll if nothing changed.
+  // The builder is excluded from the render key check because it manages its
+  // own DOM (we don't want to clobber the user's typing on every poll).
+  if (room.phase === "building") {
+    renderBuilder();
+    return;
+  }
+
+  const key = JSON.stringify({
+    phase: room.phase,
+    current: room.current_round_number,
+    roundPhase: room.round_phase,
+    walkins: room.walkin_count,
+    players: players.map(p => p.id + ":" + p.name).join("|"),
+    roundCount: rounds.length
+  });
+  if (key === lastRenderKey) return;
+  lastRenderKey = key;
+  builderRendered = false; // builder will need to re-mount if we ever go back
+
+  if (room.phase === "lobby")    return renderHostLobby();
+  if (room.phase === "playing")  return renderHostPlayingPlaceholder();
+  if (room.phase === "finished") return renderHostFinishedPlaceholder();
+
+  app.innerHTML = `<p>Unknown phase: ${escapeHtml(room.phase)}</p>`;
+}
+// ============================================================
+//  PLAYER UI
+// ============================================================
 function renderPlayerNoRoom() {
   app.innerHTML = `
     <h1>🤔 No room code</h1>
@@ -214,230 +685,149 @@ function renderPlayerNoRoom() {
   `;
 }
 
-async function renderPlayer() {
-  if (!roomCode || !gameState) { renderPlayerNoRoom(); return; }
+function renderPlayerBuilding() {
+  app.innerHTML = `
+    <h1>⏳ Hang tight!</h1>
+    <p>The host is still setting up the game.<br/>This page will update automatically.</p>
+  `;
+  playerJoinRendered = false;
+}
 
-  const idKey = `submissionId_${roomCode}`;
-  const nameKey = `submissionName_${roomCode}`;
-  const factKey = `submissionFact_${roomCode}`;
+function renderPlayerJoin() {
+  if (playerJoinRendered) return;
+  playerJoinRendered = true;
 
-  // Validate any saved submission against the DB (host may have reset)
-  const savedId = localStorage.getItem(idKey);
-  if (savedId) {
-    const stillExists = submissions.some(s => s.id === savedId);
-    if (!stillExists) {
-      // Host reset the room — clear stale localStorage silently
-      localStorage.removeItem(idKey);
-      localStorage.removeItem(nameKey);
-      localStorage.removeItem(factKey);
-      playerFormRendered = false;
-    }
-  }
-
-  // Detect "game completed" state — all submissions revealed, no current pick
-  if (gameState.phase === "revealing") {
-    const allDone = submissions.length > 0 && submissions.every(s => s.revealed) && !gameState.current_submission_id;
-    if (allDone) {
-      app.innerHTML = `
-        <h1>🎊 Thanks for playing!</h1>
-        <p>The party's wrapped up. Hope you had fun! 😄</p>
-      `;
-      playerFormRendered = false;
-      // keep polling so we detect a host reset and re-show the form
-      return;
-    }
-    app.innerHTML = `<h1>🎬 Game in progress!</h1><p>Look up at the host's screen 👀</p>`;
-    playerFormRendered = false;
-    return;
-  }
-
-  // collecting phase — show the form (or success screen)
-  if (playerFormRendered) return;
-  playerFormRendered = true;
-
-  const refreshedSavedId = localStorage.getItem(idKey);
+  const nameKey = `playerName_${roomCode}`;
   const savedName = localStorage.getItem(nameKey) || "";
-  const savedFact = localStorage.getItem(factKey) || "";
-  const isUpdating = !!refreshedSavedId;
 
   app.innerHTML = `
     <div class="card">
-      <h1 style="color:#6d28d9;">${isUpdating ? "Edit your fun fact ✏️" : "Drop a fun fact 🎉"}</h1>
-      <p style="color:#6b7280;">${isUpdating ? "You can update this until the host starts the game." : "Something surprising about you!"}</p>
-      <form id="submit-form">
+      <h1>🎉 Join the game</h1>
+      <p style="color:#6b7280;">Enter your name to join. You'll vote each round on this phone.</p>
+      <form id="join-form">
         <label>Your name</label>
-        <input id="name" maxlength="40" placeholder="e.g. Alex" required value="${escapeHtml(savedName)}" />
-        <label>Fun fact about you</label>
-        <textarea id="fact" maxlength="300" placeholder="I once met a llama in Iceland..." required>${escapeHtml(savedFact)}</textarea>
-        <button type="submit" class="btn-primary" style="width:100%;">${isUpdating ? "Update 💾" : "Submit 🚀"}</button>
-        ${isUpdating ? `<button type="button" id="clear-btn" class="toggle-link" style="margin-top:12px;">Clear and submit as someone else</button>` : ""}
+        <input id="player-name" maxlength="40" placeholder="e.g. Alex" required value="${escapeHtml(savedName)}" />
+        <button type="submit" class="btn-primary" style="width:100%;">Join 🚀</button>
       </form>
     </div>
   `;
 
-  document.getElementById("submit-form").addEventListener("submit", async (e) => {
+  document.getElementById("join-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const name = document.getElementById("name").value.trim();
-    const fact = document.getElementById("fact").value.trim();
-    if (!name || !fact) return;
+    const name = document.getElementById("player-name").value.trim();
+    if (!name) return;
     try {
-      const existingId = localStorage.getItem(idKey);
-      if (existingId) {
-        await sbUpdate("submissions", `id=eq.${existingId}`, { name, fact });
-      } else {
-        const result = await sbInsert("submissions", { name, fact, room_code: roomCode });
-        if (result && result[0]) localStorage.setItem(idKey, result[0].id);
+      const result = await sbInsert("players", { name, room_code: roomCode });
+      if (result && result[0]) {
+        localStorage.setItem(`playerId_${roomCode}`, result[0].id);
+        localStorage.setItem(nameKey, name);
       }
-      localStorage.setItem(nameKey, name);
-      localStorage.setItem(factKey, fact);
-      playerFormRendered = false;
-      app.innerHTML = `
-        <h1>✅ ${existingId ? "Updated!" : "You're in!"}</h1>
-        <p>Your fun fact is locked and loaded.</p>
-        <div class="btn-row">
-          <button class="btn-white" onclick="location.reload()">✏️ Edit again</button>
-        </div>
-      `;
-    } catch (err) { alert("Oops: " + err.message); }
+      playerJoinRendered = false;
+      await refresh();
+    } catch (err) {
+      alert("Oops: " + err.message);
+    }
   });
-
-  if (isUpdating) {
-    document.getElementById("clear-btn").addEventListener("click", () => {
-      if (!confirm("Clear your saved submission from this device?")) return;
-      localStorage.removeItem(idKey);
-      localStorage.removeItem(nameKey);
-      localStorage.removeItem(factKey);
-      playerFormRendered = false;
-      renderPlayer();
-    });
-  }
 }
-function renderHost() {
-  if (!roomCode || !gameState) { app.innerHTML = `<p>Loading...</p>`; return; }
 
-  const key = JSON.stringify({
-    room: roomCode,
-    phase: gameState.phase,
-    current: gameState.current_submission_id,
-    showName: gameState.show_name,
-    subs: submissions.map(s => s.id + ":" + s.revealed + ":" + s.name).join("|")
-  });
-  if (key === lastRenderKey) return;
-  lastRenderKey = key;
-
-  if (gameState.phase === "collecting") {
-    const playUrl = `${window.location.origin}${window.location.pathname}?play=1&room=${roomCode}`;
-    const pills = submissions.map(s => `<span class="pill">${escapeHtml(s.name)}</span>`).join("");
-    app.innerHTML = `
-      <h1>🎉 Fun Fact Party</h1>
-      <p>Scan to join the game</p>
-      <div class="qr-card"><div id="qr-wrap"></div></div>
-      <div class="room-badge">Room: ${roomCode}</div>
-      <div class="url-box">${playUrl}</div>
-      <h2>👥 ${submissions.length} submission${submissions.length === 1 ? "" : "s"}</h2>
-      <div class="name-pills">${pills}</div>
-      <div class="btn-row">
-        <button class="btn-white" id="start-btn" ${submissions.length < 2 ? "disabled" : ""}>🎬 Start the Game</button>
-      </div>
-      <br/>
-      <button class="toggle-link" id="new-party-link">🆕 Start a new party</button>
-      <button class="toggle-link" id="reset-link" style="margin-left:12px;">Reset this room</button>
-    `;
-    new QRCode(document.getElementById("qr-wrap"), { text: playUrl, width: 260, height: 260 });
-    const startBtn = document.getElementById("start-btn");
-    startBtn.addEventListener("click", () => { lockButton(startBtn); startGame(); });
-    document.getElementById("new-party-link").addEventListener("click", startNewParty);
-    document.getElementById("reset-link").addEventListener("click", resetGame);
-    return;
-  }
-
-  const current = submissions.find(s => s.id === gameState.current_submission_id);
-  const remaining = submissions.filter(s => !s.revealed).length;
-  const allDone = submissions.length > 0 && submissions.every(s => s.revealed) && !current;
-
-  if (allDone) {
-    app.innerHTML = `
-      <h1>🏁 That's everyone!</h1>
-      <p>Hope you laughed. 😄</p>
-      <div class="btn-row">
-        <button class="btn-white" id="reset-btn">Play Again (clear all)</button>
-      </div>
-      <br/>
-      <button class="toggle-link" id="new-party-link">🆕 Start a new party</button>
-    `;
-    document.getElementById("reset-btn").addEventListener("click", resetGame);
-    document.getElementById("new-party-link").addEventListener("click", startNewParty);
-    return;
-  }
-
-  if (!current) {
-    app.innerHTML = `<p>Picking next fact...</p>`;
-    pickNextRandom();
-    return;
-  }
-
+function renderPlayerLobby() {
+  const myName = localStorage.getItem(`playerName_${roomCode}`) || "you";
   app.innerHTML = `
-    <div class="fact-display">"${escapeHtml(current.fact)}"</div>
-    ${gameState.show_name ? `<div class="name-display">${escapeHtml(current.name)}</div>` : ""}
-    <div class="counter">${remaining} fact${remaining === 1 ? "" : "s"} remaining</div>
-    <div class="btn-row">
-      ${!gameState.show_name
-        ? `<button class="btn-white" id="reveal-btn">👀 Reveal Name</button>`
-        : `<button class="btn-white" id="next-btn">➡️ Next Fact</button>`}
-    </div>
-    <br/>
-    <button class="toggle-link" id="reset-link">Reset this room</button>
+    <h1>✅ You're in!</h1>
+    <p>Welcome, <strong>${escapeHtml(myName)}</strong>.<br/>Waiting for the host to start the game...</p>
+    <p style="font-size:0.9rem; opacity:0.8; margin-top:24px;">${players.length} player${players.length === 1 ? "" : "s"} joined</p>
   `;
-  if (!gameState.show_name) {
-    const btn = document.getElementById("reveal-btn");
-    btn.addEventListener("click", () => { lockButton(btn); revealName(); });
-  } else {
-    const btn = document.getElementById("next-btn");
-    btn.addEventListener("click", () => { lockButton(btn); nextRound(); });
-  }
-  document.getElementById("reset-link").addEventListener("click", resetGame);
-}
- async function startGame() {
-  await sbUpdate("game_state", `room_code=eq.${roomCode}`, { phase: "revealing", current_submission_id: null, show_name: false });
-  await pickNextRandom();
+  playerJoinRendered = false;
 }
 
-async function pickNextRandom() {
-  await loadSubmissions();
-  const unrevealed = submissions.filter(s => !s.revealed);
-  if (unrevealed.length === 0) {
-    await sbUpdate("game_state", `room_code=eq.${roomCode}`, { current_submission_id: null, show_name: false });
-    await refresh();
+function renderPlayerPlayingPlaceholder() {
+  app.innerHTML = `
+    <h1>🎮 Game in progress</h1>
+    <p>Voting UI coming in Phase 3.<br/>Look at the host's screen 👀</p>
+  `;
+  playerJoinRendered = false;
+}
+
+function renderPlayerFinishedPlaceholder() {
+  app.innerHTML = `
+    <h1>🎊 Thanks for playing!</h1>
+    <p>Leaderboard is on the host's screen.</p>
+  `;
+  playerJoinRendered = false;
+}
+
+function renderPlayer() {
+  if (!roomCode) { renderPlayerNoRoom(); return; }
+  if (!room)     { renderPlayerNoRoom(); return; }
+
+  // Validate any saved player_id against the DB (host may have reset)
+  const idKey = `playerId_${roomCode}`;
+  const savedId = localStorage.getItem(idKey);
+  if (savedId) {
+    const stillExists = players.some(p => p.id === savedId);
+    if (!stillExists) {
+      // Host reset the room — clear stale localStorage silently
+      localStorage.removeItem(idKey);
+      localStorage.removeItem(`playerName_${roomCode}`);
+      playerJoinRendered = false;
+    }
+  }
+
+  const myId = localStorage.getItem(idKey);
+  const hasJoined = !!myId;
+
+  if (room.phase === "building") {
+    renderPlayerBuilding();
     return;
   }
-  const pick = unrevealed[Math.floor(Math.random() * unrevealed.length)];
-  await sbUpdate("game_state", `room_code=eq.${roomCode}`, { current_submission_id: pick.id, show_name: false });
-  await refresh();
-}
-
-async function revealName() {
-  await sbUpdate("game_state", `room_code=eq.${roomCode}`, { show_name: true });
-  await refresh();
-}
-
-async function nextRound() {
-  if (gameState && gameState.current_submission_id) {
-    await sbUpdate("submissions", `id=eq.${gameState.current_submission_id}`, { revealed: true });
+  if (room.phase === "lobby") {
+    if (!hasJoined) { renderPlayerJoin(); return; }
+    renderPlayerLobby();
+    return;
   }
-  await pickNextRandom();
+  if (room.phase === "playing") {
+    if (!hasJoined) {
+      // Phase 1 policy: late joiners can still join with 0 score; we'll keep
+      // the same join screen here, scoring kicks in starting Phase 3.
+      renderPlayerJoin();
+      return;
+    }
+    renderPlayerPlayingPlaceholder();
+    return;
+  }
+  if (room.phase === "finished") {
+    renderPlayerFinishedPlaceholder();
+    return;
+  }
+
+  app.innerHTML = `<p>Unknown phase: ${escapeHtml(room.phase)}</p>`;
 }
 
-async function resetGame() {
-  if (!confirm("Reset this room? This deletes all submissions in this room.")) return;
-  await sbDelete("submissions", `room_code=eq.${roomCode}`);
-  await sbUpdate("game_state", `room_code=eq.${roomCode}`, { phase: "collecting", current_submission_id: null, show_name: false });
-  lastRenderKey = "";
-  await refresh();
+// ============================================================
+//  LANDING (no host/play params)
+// ============================================================
+function renderLanding() {
+  app.innerHTML = `
+    <h1>🎉 Fun Fact Trivia</h1>
+    <p>A trivia game built around your team's fun facts.</p>
+    <div class="btn-row">
+      <a href="?host=1"><button class="btn-white">🎤 I'm the Host</button></a>
+    </div>
+    <p style="margin-top:24px; font-size:0.9rem; opacity:0.8;">Players: scan the QR code shown by your host to join.</p>
+  `;
 }
 
+// ============================================================
+//  MAIN REFRESH LOOP
+// ============================================================
 async function refresh() {
   try {
-    await Promise.all([loadSubmissions(), loadGameState()]);
+    if (isHost) {
+      if (!roomCode || !localStorage.getItem("hostRoomCode") || localStorage.getItem("hostRoomCode") !== roomCode) {
+        await ensureHostRoom();
+      }
+    }
+    await Promise.all([loadRoom(), loadPlayers(), loadRounds()]);
     if (isHost) renderHost();
     else if (isPlayer) renderPlayer();
     else renderLanding();
@@ -446,22 +836,22 @@ async function refresh() {
   }
 }
 
+// ============================================================
+//  BOOT
+// ============================================================
 (async () => {
   if (isHost) {
     await ensureHostRoom();
     await refresh();
-    startPolling(); // host: 2-second polling
+    startPolling(2000); // host polls every 2s
   } else if (isPlayer) {
     await refresh();
-    // player: always poll at 5-second intervals so they detect resets, phase changes, and game-end
-    if (roomCode) {
-      pollTimer = setInterval(refresh, 5000);
-    }
+    if (roomCode) startPolling(5000); // player polls every 5s
   } else {
     renderLanding();
   }
 })();
 </script>
 </body>
-<!-- Iceland -->
+<!-- Norway -->
 </html>
