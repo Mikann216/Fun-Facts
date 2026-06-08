@@ -57,6 +57,31 @@
   .preview-names { color: #1f2937; font-size: 0.88rem; }
   .preview-correct { color: #059669; font-weight: 600; }
   .matching-badge { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; margin-left: 6px; }
+
+   /* Voting / round UI */
+  .round-header { font-size: 0.95rem; opacity: 0.9; margin-bottom: 8px; letter-spacing: 0.1em; }
+  .fact-display { font-size: clamp(1.4rem, 4vw, 2.2rem); font-weight: 700; line-height: 1.4; padding: 24px 16px; margin: 12px 0; background: rgba(255,255,255,0.95); color: #1f2937; border-radius: 16px; box-shadow: 0 12px 30px rgba(0,0,0,0.2); }
+  .name-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+  .name-tile { background: rgba(255,255,255,0.95); color: #1f2937; padding: 18px 12px; border-radius: 14px; font-size: 1.1rem; font-weight: 700; text-align: center; border: 3px solid transparent; transition: all 0.15s; box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
+  .name-tile.correct { border-color: #10b981; background: #d1fae5; color: #065f46; }
+  .name-tile.correct::before { content: "✓ "; color: #10b981; font-weight: 900; }
+  button.name-tile { cursor: pointer; font-family: inherit; }
+  button.name-tile:hover:not(:disabled) { transform: scale(1.04); box-shadow: 0 10px 24px rgba(0,0,0,0.25); }
+  button.name-tile:disabled { opacity: 0.5; cursor: not-allowed; }
+  .vote-counter { font-size: 1.05rem; opacity: 0.9; margin: 12px 0; font-weight: 600; }
+  /* Vertical bar chart */
+  .bar-chart { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 18px 0; align-items: end; height: 180px; padding: 0 8px; }
+  .bar-col { display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+  .bar-fill { width: 70%; background: linear-gradient(180deg, #fbbf24, #f59e0b); border-radius: 8px 8px 0 0; min-height: 4px; transition: height 0.5s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+  .bar-fill.correct { background: linear-gradient(180deg, #34d399, #10b981); }
+  .bar-count { font-size: 1.05rem; font-weight: 800; margin-top: 6px; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+  .bar-label { font-size: 0.85rem; margin-top: 4px; color: rgba(255,255,255,0.95); font-weight: 600; word-break: break-word; max-width: 100%; text-align: center; }
+  .bar-label.correct { color: #fef08a; font-weight: 800; }
+  /* Player voting screen */
+  .vote-locked { background: rgba(255,255,255,0.95); color: #1f2937; padding: 30px 20px; border-radius: 16px; margin: 20px 0; box-shadow: 0 12px 30px rgba(0,0,0,0.2); }
+  .vote-locked h2 { color: #6d28d9; margin-bottom: 8px; }
+  .vote-locked .my-pick { font-size: 1.3rem; font-weight: 800; color: #6d28d9; margin: 12px 0; }
+ 
   a { text-decoration: none; }
 </style>
 </head>
@@ -445,6 +470,70 @@ const TEST_DATA_PERM1 = "Nora,Mark,Oscar,Pat";
 const TEST_DATA_PERM2 = "Mark,Oscar,Nora,Pat";
 const TEST_DATA_PERM3 = "Pat,Nora,Oscar,Mark";
 
+ // ============================================================
+//  GAME ACTIONS (voting, reveal, advance)
+// ============================================================
+
+// Get the current round object based on room.current_round_number
+function getCurrentRound() {
+  if (!room || !room.current_round_number) return null;
+  return rounds.find(r => r.round_number === room.current_round_number) || null;
+}
+
+// Get all votes cast so far for the current round
+async function loadVotesForCurrentRound() {
+  if (!room || !room.current_round_number) return [];
+  return await sbSelect("votes",
+    `select=*&room_code=eq.${roomCode}&round_number=eq.${room.current_round_number}`);
+}
+
+// Player submits a vote for a single-fact round.
+// `choice` is the chosen name string. Vote is immutable once submitted.
+async function submitSingleVote(choice) {
+  const myId = localStorage.getItem(`playerId_${roomCode}`);
+  if (!myId) throw new Error("Not joined as a player.");
+  const cur = getCurrentRound();
+  if (!cur) throw new Error("No current round.");
+  if (cur.round_type !== "single") throw new Error("This isn't a single-fact round.");
+  if (room.round_phase !== "voting") throw new Error("Voting is closed for this round.");
+
+  const isCorrect = (choice === cur.correct_name);
+  await sbInsert("votes", {
+    room_code: roomCode,
+    round_number: cur.round_number,
+    player_id: myId,
+    choice: choice,
+    is_correct: isCorrect
+  });
+}
+
+// Host reveals the current round (transitions voting -> revealing).
+async function revealCurrentRound() {
+  await sbUpdate("rooms", `room_code=eq.${roomCode}`, { round_phase: "revealing" });
+  lastRenderKey = "";
+  await refresh();
+}
+
+// Host advances to the next round (or finishes the game if last round).
+async function advanceToNextRound() {
+  const cur = getCurrentRound();
+  if (!cur) return;
+  const nextNum = cur.round_number + 1;
+  const hasNext = rounds.some(r => r.round_number === nextNum);
+  if (!hasNext) {
+    // No more rounds — game finished
+    await sbUpdate("rooms", `room_code=eq.${roomCode}`, {
+      phase: "finished", round_phase: "voting"
+    });
+  } else {
+    await sbUpdate("rooms", `room_code=eq.${roomCode}`, {
+      current_round_number: nextNum, round_phase: "voting"
+    });
+  }
+  lastRenderKey = "";
+  await refresh();
+}
+ 
 // ============================================================
 //  HOST BUILDER UI
 // ============================================================
@@ -615,27 +704,132 @@ function renderHostLobby() {
 }
 
 // ============================================================
-//  HOST PLAYING UI — placeholder until Phase 3
+//  HOST PLAYING UI — voting + revealing
 // ============================================================
-function renderHostPlayingPlaceholder() {
-  app.innerHTML = `
-    <h1>🎮 Game in progress</h1>
-    <p>Round ${room.current_round_number} of ${rounds.length}</p>
-    <div class="card" style="text-align:center;">
-      <h2>Phase 3 will live here</h2>
-      <p style="color:#6b7280;">Voting, reveal, bar chart, scoring — coming next.</p>
-    </div>
-    <div class="btn-row">
-      <button class="btn-white" id="back-lobby-btn">⬅️ Back to lobby</button>
-      <button class="toggle-link" id="reset-link">Reset this room</button>
-    </div>
-  `;
-  document.getElementById("back-lobby-btn").addEventListener("click", async () => {
-    await sbUpdate("rooms", `room_code=eq.${roomCode}`, {
-      phase: "lobby", current_round_number: 0, round_phase: "voting"
+async function renderHostPlaying() {
+  const cur = getCurrentRound();
+  if (!cur) {
+    app.innerHTML = `<p>Loading round ${room.current_round_number}...</p>`;
+    return;
+  }
+
+  // Phase 4 will replace this with the matching round UI.
+  if (cur.round_type === "matching") {
+    app.innerHTML = `
+      <h1>🧩 Matching Round</h1>
+      <p>Round ${cur.round_number} of ${rounds.length}</p>
+      <div class="card">
+        <h2>Phase 4 will live here</h2>
+        <p style="color:#6b7280;">Matching round UI is not built yet. For now, you can advance to finish the game.</p>
+      </div>
+      <div class="btn-row">
+        <button class="btn-white" id="advance-btn">⏭️ Skip to end</button>
+        <button class="toggle-link" id="reset-link">Reset this room</button>
+      </div>
+    `;
+    document.getElementById("advance-btn").addEventListener("click", async (e) => {
+      lockButton(e.target);
+      await advanceToNextRound();
     });
-    lastRenderKey = "";
-    await refresh();
+    document.getElementById("reset-link").addEventListener("click", fullReset);
+    return;
+  }
+
+  // Single-fact round
+  if (room.round_phase === "voting") {
+    return renderHostVotingSingle(cur);
+  }
+  if (room.round_phase === "revealing") {
+    return await renderHostRevealingSingle(cur);
+  }
+  app.innerHTML = `<p>Unknown round phase: ${escapeHtml(room.round_phase)}</p>`;
+}
+
+function renderHostVotingSingle(cur) {
+  const totalRounds = rounds.length;
+  const totalPlayers = players.length;
+  const tilesHtml = cur.candidate_names.map(n =>
+    `<div class="name-tile">${escapeHtml(n)}</div>`
+  ).join("");
+
+  // We need vote count — fetch it asynchronously and update once we have it.
+  app.innerHTML = `
+    <div class="round-header">ROUND ${cur.round_number} / ${totalRounds}</div>
+    <div class="fact-display">"${escapeHtml(cur.fact)}"</div>
+    <div class="name-grid">${tilesHtml}</div>
+    <div class="vote-counter" id="vote-counter">Loading votes...</div>
+    <div class="btn-row">
+      <button class="btn-white" id="reveal-btn">➡️ Reveal</button>
+    </div>
+    <br/>
+    <button class="toggle-link" id="reset-link">Reset this room</button>
+  `;
+
+  document.getElementById("reveal-btn").addEventListener("click", async (e) => {
+    lockButton(e.target);
+    await revealCurrentRound();
+  });
+  document.getElementById("reset-link").addEventListener("click", fullReset);
+
+  // Async update of vote counter
+  loadVotesForCurrentRound().then(votes => {
+    const el = document.getElementById("vote-counter");
+    if (el) el.textContent = `${votes.length} / ${totalPlayers} voted`;
+  }).catch(() => {});
+}
+
+async function renderHostRevealingSingle(cur) {
+  const totalRounds = rounds.length;
+  const votes = await loadVotesForCurrentRound();
+
+  // Tally votes per candidate name
+  const tally = {};
+  for (const n of cur.candidate_names) tally[n] = 0;
+  for (const v of votes) {
+    if (tally.hasOwnProperty(v.choice)) tally[v.choice]++;
+  }
+
+  // 2x2 name grid with correct one highlighted
+  const tilesHtml = cur.candidate_names.map(n => {
+    const cls = (n === cur.correct_name) ? "name-tile correct" : "name-tile";
+    return `<div class="${cls}">${escapeHtml(n)}</div>`;
+  }).join("");
+
+  // Vertical bar chart, scaled to max vote count
+  const maxVotes = Math.max(1, ...Object.values(tally));
+  const barsHtml = cur.candidate_names.map(n => {
+    const count = tally[n] || 0;
+    const heightPct = Math.round((count / maxVotes) * 100);
+    const isCorrect = (n === cur.correct_name);
+    const fillCls = isCorrect ? "bar-fill correct" : "bar-fill";
+    const labelCls = isCorrect ? "bar-label correct" : "bar-label";
+    return `
+      <div class="bar-col">
+        <div class="bar-count">${count}</div>
+        <div class="${fillCls}" style="height: ${heightPct}%;"></div>
+        <div class="${labelCls}">${escapeHtml(n)}</div>
+      </div>
+    `;
+  }).join("");
+
+  const isLastRound = !rounds.some(r => r.round_number === cur.round_number + 1);
+  const nextLabel = isLastRound ? "🏁 Finish Game" : "➡️ Next Round";
+
+  app.innerHTML = `
+    <div class="round-header">ROUND ${cur.round_number} / ${totalRounds}</div>
+    <div class="fact-display">"${escapeHtml(cur.fact)}"</div>
+    <div class="name-grid">${tilesHtml}</div>
+    <div class="bar-chart">${barsHtml}</div>
+    <div class="btn-row">
+      <button class="btn-white" id="next-btn">${nextLabel}</button>
+    </div>
+    <br/>
+    <button class="toggle-link" id="reset-link">Reset this room</button>
+  `;
+
+  document.getElementById("next-btn").addEventListener("click", async (e) => {
+    lockButton(e.target);
+    await advanceToNextRound();
   });
   document.getElementById("reset-link").addEventListener("click", fullReset);
 }
@@ -681,7 +875,7 @@ function renderHost() {
   builderRendered = false; // builder will need to re-mount if we ever go back
 
   if (room.phase === "lobby")    return renderHostLobby();
-  if (room.phase === "playing")  return renderHostPlayingPlaceholder();
+  if (room.phase === "playing")  return renderHostPlaying();
   if (room.phase === "finished") return renderHostFinishedPlaceholder();
 
   app.innerHTML = `<p>Unknown phase: ${escapeHtml(room.phase)}</p>`;
@@ -751,12 +945,85 @@ function renderPlayerLobby() {
   playerJoinRendered = false;
 }
 
-function renderPlayerPlayingPlaceholder() {
+async function renderPlayerPlaying() {
+  const cur = getCurrentRound();
+  if (!cur) {
+    app.innerHTML = `<h1>⏳ Waiting for next round...</h1>`;
+    return;
+  }
+
+  // Phase 4 placeholder for matching rounds
+  if (cur.round_type === "matching") {
+    app.innerHTML = `
+      <h1>🧩 Matching Round</h1>
+      <p>Voting UI coming in Phase 4.<br/>Look at the host's screen 👀</p>
+    `;
+    return;
+  }
+
+  // Per Q3=B, players see "look at host screen" during revealing
+  if (room.round_phase === "revealing") {
+    app.innerHTML = `
+      <h1>🎬 Round ${cur.round_number} reveal</h1>
+      <p>Look at the host's screen 👀</p>
+    `;
+    return;
+  }
+
+  // Voting phase — check if this player has already voted
+  const myId = localStorage.getItem(`playerId_${roomCode}`);
+  if (!myId) {
+    // Edge case: somehow lost player_id mid-game; treat as join again
+    playerJoinRendered = false;
+    renderPlayerJoin();
+    return;
+  }
+
+  const myVotes = await sbSelect("votes",
+    `select=*&room_code=eq.${roomCode}&round_number=eq.${cur.round_number}&player_id=eq.${myId}`);
+  const myVote = myVotes[0];
+
+  if (myVote) {
+    // Already voted — show "locked in" screen
+    app.innerHTML = `
+      <div class="round-header">ROUND ${cur.round_number} / ${rounds.length}</div>
+      <div class="fact-display">"${escapeHtml(cur.fact)}"</div>
+      <div class="vote-locked">
+        <h2>✅ Locked in!</h2>
+        <div class="my-pick">You picked: ${escapeHtml(myVote.choice)}</div>
+        <p style="color:#6b7280; margin:0;">Waiting for others to vote...</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Hasn't voted yet — show 4 tappable name buttons
+  const tilesHtml = cur.candidate_names.map(n =>
+    `<button class="name-tile" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`
+  ).join("");
+
   app.innerHTML = `
-    <h1>🎮 Game in progress</h1>
-    <p>Voting UI coming in Phase 3.<br/>Look at the host's screen 👀</p>
+    <div class="round-header">ROUND ${cur.round_number} / ${rounds.length}</div>
+    <div class="fact-display">"${escapeHtml(cur.fact)}"</div>
+    <div class="name-grid" id="vote-grid">${tilesHtml}</div>
+    <p style="font-size:0.9rem; opacity:0.85; margin-top:8px;">Tap your guess. Once locked in, you can't change it.</p>
   `;
-  playerJoinRendered = false;
+
+  document.querySelectorAll("#vote-grid button").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      const choice = btn.getAttribute("data-name");
+      // Disable all buttons immediately to prevent double-click / double-vote
+      document.querySelectorAll("#vote-grid button").forEach(b => b.disabled = true);
+      try {
+        await submitSingleVote(choice);
+        await refresh();
+      } catch (err) {
+        // Re-enable on error
+        document.querySelectorAll("#vote-grid button").forEach(b => b.disabled = false);
+        alert("Oops: " + err.message);
+      }
+    });
+  });
 }
 
 function renderPlayerFinishedPlaceholder() {
@@ -798,12 +1065,11 @@ function renderPlayer() {
   }
   if (room.phase === "playing") {
     if (!hasJoined) {
-      // Phase 1 policy: late joiners can still join with 0 score; we'll keep
-      // the same join screen here, scoring kicks in starting Phase 3.
+      // Late joiners get the join screen; scoring starts from their first vote.
       renderPlayerJoin();
       return;
     }
-    renderPlayerPlayingPlaceholder();
+    renderPlayerPlaying();
     return;
   }
   if (room.phase === "finished") {
@@ -864,5 +1130,5 @@ async function refresh() {
 })();
 </script>
 </body>
-<!-- Norway -->
+<!-- Sweden -->
 </html>
