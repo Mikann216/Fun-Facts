@@ -142,6 +142,26 @@
   .my-result-rank { font-size: 1.4rem; font-weight: 800; margin: 12px 0; }
   .my-result-score { font-size: 2rem; font-weight: 900; color: #6d28d9; margin: 8px 0; }
   .my-result-score-label { font-size: 0.9rem; color: #6b7280; margin-top: 4px; }
+
+  /* Corner QR (visible during host gameplay for latecomers) */
+  .corner-qr {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    background: white;
+    padding: 8px 8px 4px;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    z-index: 100;
+    text-align: center;
+    color: #1f2937;
+  }
+  .corner-qr-canvas { display: block; }
+  .corner-qr-label { font-size: 0.7rem; font-weight: 700; color: #6d28d9; margin-top: 4px; letter-spacing: 0.05em; }
+  .corner-qr-code { font-family: monospace; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.15em; color: #4b5563; }
+  @media (max-width: 480px) {
+    .corner-qr { display: none; } /* hide on tiny screens (player phones don't need it) */
+  } 
  
   a { text-decoration: none; }
 </style>
@@ -263,6 +283,30 @@ function shuffleArray(arr) {
   return a;
 }
 
+// Mount a small persistent QR + room code in the top-right corner.
+// Call after innerHTML rewrites that should keep the corner QR visible.
+function mountCornerQR() {
+  if (!roomCode || !isHost) return;
+  // Remove any existing corner QR first to avoid duplicates
+  const existing = document.querySelector(".corner-qr");
+  if (existing) existing.remove();
+  const playUrl = `${window.location.origin}${window.location.pathname}?play=1&room=${roomCode}`;
+  const wrapper = document.createElement("div");
+  wrapper.className = "corner-qr";
+  wrapper.innerHTML = `
+    <div id="corner-qr-canvas" class="corner-qr-canvas"></div>
+    <div class="corner-qr-label">SCAN TO JOIN</div>
+    <div class="corner-qr-code">${roomCode}</div>
+  `;
+  document.body.appendChild(wrapper);
+  new QRCode(wrapper.querySelector("#corner-qr-canvas"), { text: playUrl, width: 96, height: 96 });
+}
+
+function unmountCornerQR() {
+  const existing = document.querySelector(".corner-qr");
+  if (existing) existing.remove();
+}
+ 
 // ---------- Data loaders ----------
 async function loadRoom() {
   if (!roomCode) { room = null; return; }
@@ -876,6 +920,7 @@ function renderHostPlaying() {
 }
 
 function renderHostVotingSingle(cur) {
+  mountCornerQR();
   const totalRounds = rounds.length;
   const totalPlayers = players.length;
   const voteCount = currentRoundVotes.length;
@@ -903,6 +948,7 @@ function renderHostVotingSingle(cur) {
 }
 
 function renderHostRevealingSingle(cur) {
+   mountCornerQR();
   const totalRounds = rounds.length;
   const votes = currentRoundVotes;
 
@@ -959,6 +1005,7 @@ function renderHostRevealingSingle(cur) {
 }
 
  function renderHostVotingMatching(cur) {
+  mountCornerQR();
   const totalRounds = rounds.length;
   const totalPlayers = players.length;
   const voteCount = currentRoundVotes.length;
@@ -996,6 +1043,7 @@ function renderHostRevealingSingle(cur) {
 }
 
 function renderHostRevealingMatching(cur) {
+  mountCornerQR();
   const totalRounds = rounds.length;
   const votes = currentRoundVotes;
 
@@ -1137,10 +1185,17 @@ function renderHost() {
   lastRenderKey = key;
   builderRendered = false; // builder will need to re-mount if we ever go back
 
+  // Mount/unmount corner QR based on phase. Only visible during gameplay.
+  if (room.phase === "playing") {
+    mountCornerQR();
+  } else {
+    unmountCornerQR();
+  }
+
   if (room.phase === "lobby")    return renderHostLobby();
   if (room.phase === "playing")  return renderHostPlaying();
   if (room.phase === "finished") return renderHostFinished();
- 
+
   app.innerHTML = `<p>Unknown phase: ${escapeHtml(room.phase)}</p>`;
 }
 // ============================================================
@@ -1477,6 +1532,9 @@ function renderLanding() {
 // ============================================================
 //  MAIN REFRESH LOOP
 // ============================================================
+let consecutiveFailures = 0;
+const FAILURE_THRESHOLD = 3;
+
 async function refresh() {
   try {
     if (isHost) {
@@ -1485,13 +1543,28 @@ async function refresh() {
       }
     }
     await Promise.all([loadRoom(), loadPlayers(), loadRounds()]);
-    // Load votes for the current round (needed by host counter and player vote-status check)
     await loadCurrentRoundVotes();
+    consecutiveFailures = 0; // reset on success
     if (isHost) renderHost();
     else if (isPlayer) renderPlayer();
     else renderLanding();
   } catch (err) {
-    app.innerHTML = `<div class="card" style="color:#b91c1c;"><h2>⚠️ Error</h2><p>${escapeHtml(err.message)}</p><p style="font-size:0.9rem;">Check that your SUPABASE_URL and SUPABASE_KEY are filled in correctly, and that the database migration ran successfully.</p></div>`;
+    consecutiveFailures++;
+    console.warn(`[refresh] Failure ${consecutiveFailures}/${FAILURE_THRESHOLD}:`, err.message);
+    // Only show the error screen after multiple consecutive failures.
+    // Single transient failures (flaky Wi-Fi, brief blip) are silent.
+    if (consecutiveFailures >= FAILURE_THRESHOLD) {
+      app.innerHTML = `
+        <div class="card" style="color:#b91c1c;">
+          <h2>⚠️ Connection trouble</h2>
+          <p>Couldn't reach the server after ${consecutiveFailures} tries.</p>
+          <p style="font-size:0.9rem; margin-top:8px;">${escapeHtml(err.message)}</p>
+          <p style="font-size:0.9rem; margin-top:8px;">Check your internet connection. The app will keep retrying — once you're back online, it should recover automatically.</p>
+        </div>
+      `;
+    }
+    // Note: we don't return early. Polling continues, and the next successful
+    // refresh will reset the counter and re-render the correct screen.
   }
 }
 
@@ -1512,5 +1585,5 @@ async function refresh() {
 })();
 </script>
 </body>
-<!-- Finland -->
+<!-- Iceland -->
 </html>
