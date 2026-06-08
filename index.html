@@ -388,8 +388,19 @@ function buildGamePlan(sheetRaw, matchingRowsRaw, perm1Raw, perm2Raw, perm3Raw) 
 async function saveGamePlan(plan) {
   // Wipe any existing rounds first (in case host re-edits)
   await sbDelete("rounds", `room_code=eq.${roomCode}`);
-  // Insert new rounds
-  const rows = plan.map(p => ({ ...p, room_code: roomCode }));
+  // Normalize every row to have the same keys (PostgREST bulk-insert requirement)
+  const rows = plan.map(p => ({
+    room_code: roomCode,
+    round_number: p.round_number,
+    round_type: p.round_type,
+    fact: p.fact ?? null,
+    correct_name: p.correct_name ?? null,
+    candidate_names: p.candidate_names ?? null,
+    matching_facts: p.matching_facts ?? null,
+    matching_options: p.matching_options ?? null,
+    matching_correct_index: p.matching_correct_index ?? null,
+    is_walkin: p.is_walkin ?? false
+  }));
   await sbInsert("rounds", rows);
 }
 
