@@ -81,6 +81,21 @@
   .vote-locked { background: rgba(255,255,255,0.95); color: #1f2937; padding: 30px 20px; border-radius: 16px; margin: 20px 0; box-shadow: 0 12px 30px rgba(0,0,0,0.2); }
   .vote-locked h2 { color: #6d28d9; margin-bottom: 8px; }
   .vote-locked .my-pick { font-size: 1.3rem; font-weight: 800; color: #6d28d9; margin: 12px 0; }
+
+   /* Matching round */
+  .matching-facts-list { background: rgba(255,255,255,0.95); color: #1f2937; padding: 18px 20px; border-radius: 14px; margin: 14px 0; box-shadow: 0 8px 20px rgba(0,0,0,0.15); text-align: left; }
+  .matching-fact-row { padding: 6px 0; font-size: 1.02rem; line-height: 1.4; border-bottom: 1px solid #e5e7eb; }
+  .matching-fact-row:last-child { border-bottom: none; }
+  .matching-fact-num { font-weight: 800; color: #6d28d9; margin-right: 6px; }
+  .matching-options { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
+  .matching-option { background: rgba(255,255,255,0.95); color: #1f2937; padding: 14px 16px; border-radius: 12px; font-size: 1.0rem; font-weight: 600; text-align: center; border: 3px solid transparent; transition: all 0.15s; box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
+  .matching-option.correct { border-color: #10b981; background: #d1fae5; color: #065f46; }
+  .matching-option.correct::before { content: "✓ "; color: #10b981; font-weight: 900; }
+  button.matching-option { cursor: pointer; font-family: inherit; width: 100%; }
+  button.matching-option:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 10px 24px rgba(0,0,0,0.25); }
+  button.matching-option:disabled { opacity: 0.5; cursor: not-allowed; }
+  .matching-option-label { font-size: 0.78rem; color: #6d28d9; font-weight: 800; margin-bottom: 4px; letter-spacing: 0.1em; }
+  .matching-option.correct .matching-option-label { color: #065f46; }
  
   a { text-decoration: none; }
 </style>
@@ -513,6 +528,26 @@ async function submitSingleVote(choice) {
   });
 }
 
+// Player submits a vote for the matching round.
+// `optionIndex` is the integer 0-3 of the chosen permutation.
+async function submitMatchingVote(optionIndex) {
+  const myId = localStorage.getItem(`playerId_${roomCode}`);
+  if (!myId) throw new Error("Not joined as a player.");
+  const cur = getCurrentRound();
+  if (!cur) throw new Error("No current round.");
+  if (cur.round_type !== "matching") throw new Error("This isn't a matching round.");
+  if (room.round_phase !== "voting") throw new Error("Voting is closed for this round.");
+
+  const isCorrect = (optionIndex === cur.matching_correct_index);
+  await sbInsert("votes", {
+    room_code: roomCode,
+    round_number: cur.round_number,
+    player_id: myId,
+    choice: String(optionIndex),
+    is_correct: isCorrect
+  });
+}
+
 // Host reveals the current round (transitions voting -> revealing).
 async function revealCurrentRound() {
   await sbUpdate("rooms", `room_code=eq.${roomCode}`, { round_phase: "revealing" });
@@ -719,26 +754,13 @@ function renderHostPlaying() {
     return;
   }
 
-  // Phase 4 will replace this with the matching round UI.
   if (cur.round_type === "matching") {
-    app.innerHTML = `
-      <h1>🧩 Matching Round</h1>
-      <p>Round ${cur.round_number} of ${rounds.length}</p>
-      <div class="card">
-        <h2>Phase 4 will live here</h2>
-        <p style="color:#6b7280;">Matching round UI is not built yet. For now, you can advance to finish the game.</p>
-      </div>
-      <div class="btn-row">
-        <button class="btn-white" id="advance-btn">⏭️ Skip to end</button>
-        <button class="toggle-link" id="reset-link">Reset this room</button>
-      </div>
-    `;
-    document.getElementById("advance-btn").addEventListener("click", async (e) => {
-      lockButton(e.target);
-      await advanceToNextRound();
-    });
-    document.getElementById("reset-link").addEventListener("click", fullReset);
-    return;
+    if (room.round_phase === "voting") {
+      return renderHostVotingMatching(cur);
+    }
+    if (room.round_phase === "revealing") {
+      return renderHostRevealingMatching(cur);
+    }
   }
 
   // Single-fact round
@@ -834,6 +856,109 @@ function renderHostRevealingSingle(cur) {
   document.getElementById("reset-link").addEventListener("click", fullReset);
 }
 
+ function renderHostVotingMatching(cur) {
+  const totalRounds = rounds.length;
+  const totalPlayers = players.length;
+  const voteCount = currentRoundVotes.length;
+
+  const factsHtml = cur.matching_facts.map((f, i) => `
+    <div class="matching-fact-row">
+      <span class="matching-fact-num">${i + 1}.</span>${escapeHtml(f.fact)}
+    </div>
+  `).join("");
+
+  const optionsHtml = cur.matching_options.map((opt, i) => `
+    <div class="matching-option">
+      <div class="matching-option-label">OPTION ${i + 1}</div>
+      ${opt.map(escapeHtml).join(", ")}
+    </div>
+  `).join("");
+
+  app.innerHTML = `
+    <div class="round-header">ROUND ${cur.round_number} / ${totalRounds} — MATCHING</div>
+    <div class="matching-facts-list">${factsHtml}</div>
+    <div class="matching-options">${optionsHtml}</div>
+    <div class="vote-counter">${voteCount} / ${totalPlayers} voted</div>
+    <div class="btn-row">
+      <button class="btn-white" id="reveal-btn">➡️ Reveal</button>
+    </div>
+    <br/>
+    <button class="toggle-link" id="reset-link">Reset this room</button>
+  `;
+
+  document.getElementById("reveal-btn").addEventListener("click", async (e) => {
+    lockButton(e.target);
+    await revealCurrentRound();
+  });
+  document.getElementById("reset-link").addEventListener("click", fullReset);
+}
+
+function renderHostRevealingMatching(cur) {
+  const totalRounds = rounds.length;
+  const votes = currentRoundVotes;
+
+  // Tally votes per option index
+  const tally = [0, 0, 0, 0];
+  for (const v of votes) {
+    const idx = parseInt(v.choice, 10);
+    if (idx >= 0 && idx < 4) tally[idx]++;
+  }
+
+  const factsHtml = cur.matching_facts.map((f, i) => `
+    <div class="matching-fact-row">
+      <span class="matching-fact-num">${i + 1}.</span>${escapeHtml(f.fact)}
+    </div>
+  `).join("");
+
+  const optionsHtml = cur.matching_options.map((opt, i) => {
+    const cls = (i === cur.matching_correct_index) ? "matching-option correct" : "matching-option";
+    return `
+      <div class="${cls}">
+        <div class="matching-option-label">OPTION ${i + 1}</div>
+        ${opt.map(escapeHtml).join(", ")}
+      </div>
+    `;
+  }).join("");
+
+  // Vertical bar chart by option, scaled to max vote count
+  const maxVotes = Math.max(1, ...tally);
+  const barsHtml = cur.matching_options.map((_, i) => {
+    const count = tally[i];
+    const heightPct = Math.round((count / maxVotes) * 100);
+    const isCorrect = (i === cur.matching_correct_index);
+    const fillCls = isCorrect ? "bar-fill correct" : "bar-fill";
+    const labelCls = isCorrect ? "bar-label correct" : "bar-label";
+    return `
+      <div class="bar-col">
+        <div class="bar-count">${count}</div>
+        <div class="${fillCls}" style="height: ${heightPct}%;"></div>
+        <div class="${labelCls}">Option ${i + 1}</div>
+      </div>
+    `;
+  }).join("");
+
+  const isLastRound = !rounds.some(r => r.round_number === cur.round_number + 1);
+  const nextLabel = isLastRound ? "🏁 Finish Game" : "➡️ Next Round";
+
+  app.innerHTML = `
+    <div class="round-header">ROUND ${cur.round_number} / ${totalRounds} — MATCHING</div>
+    <div class="matching-facts-list">${factsHtml}</div>
+    <div class="matching-options">${optionsHtml}</div>
+    <div class="bar-chart">${barsHtml}</div>
+    <div class="btn-row">
+      <button class="btn-white" id="next-btn">${nextLabel}</button>
+    </div>
+    <br/>
+    <button class="toggle-link" id="reset-link">Reset this room</button>
+  `;
+
+  document.getElementById("next-btn").addEventListener("click", async (e) => {
+    lockButton(e.target);
+    await advanceToNextRound();
+  });
+  document.getElementById("reset-link").addEventListener("click", fullReset);
+}
+ 
 // ============================================================
 //  HOST FINISHED UI — placeholder until Phase 6
 // ============================================================
@@ -953,13 +1078,17 @@ async function renderPlayerPlaying() {
     return;
   }
 
-  // Phase 4 placeholder for matching rounds
+  // Matching round
   if (cur.round_type === "matching") {
-    app.innerHTML = `
-      <h1>🧩 Matching Round</h1>
-      <p>Voting UI coming in Phase 4.<br/>Look at the host's screen 👀</p>
-    `;
-    return;
+    // During revealing, players see "look at host" (per Q3=B)
+    if (room.round_phase === "revealing") {
+      app.innerHTML = `
+        <h1>🎬 Matching round reveal</h1>
+        <p>Look at the host's screen 👀</p>
+      `;
+      return;
+    }
+    return renderPlayerVotingMatching(cur);
   }
 
   // Per Q3=B, players see "look at host screen" during revealing
@@ -1021,6 +1150,72 @@ async function renderPlayerPlaying() {
       } catch (err) {
         // Re-enable on error
         document.querySelectorAll("#vote-grid button").forEach(b => b.disabled = false);
+        alert("Oops: " + err.message);
+      }
+    });
+  });
+}
+
+ async function renderPlayerVotingMatching(cur) {
+  const myId = localStorage.getItem(`playerId_${roomCode}`);
+  if (!myId) {
+    playerJoinRendered = false;
+    renderPlayerJoin();
+    return;
+  }
+
+  // Check if this player has already voted
+  const myVotes = await sbSelect("votes",
+    `select=*&room_code=eq.${roomCode}&round_number=eq.${cur.round_number}&player_id=eq.${myId}`);
+  const myVote = myVotes[0];
+
+  const factsHtml = cur.matching_facts.map((f, i) => `
+    <div class="matching-fact-row">
+      <span class="matching-fact-num">${i + 1}.</span>${escapeHtml(f.fact)}
+    </div>
+  `).join("");
+
+  if (myVote) {
+    // Already voted — show locked-in screen with their choice
+    const chosenIdx = parseInt(myVote.choice, 10);
+    const chosenOpt = cur.matching_options[chosenIdx] || [];
+    app.innerHTML = `
+      <div class="round-header">ROUND ${cur.round_number} / ${rounds.length} — MATCHING</div>
+      <div class="matching-facts-list">${factsHtml}</div>
+      <div class="vote-locked">
+        <h2>✅ Locked in!</h2>
+        <div class="my-pick">Option ${chosenIdx + 1}: ${chosenOpt.map(escapeHtml).join(", ")}</div>
+        <p style="color:#6b7280; margin:0;">Waiting for others to vote...</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Not voted yet — show 4 tappable options
+  const optionsHtml = cur.matching_options.map((opt, i) => `
+    <button class="matching-option" data-idx="${i}">
+      <div class="matching-option-label">OPTION ${i + 1}</div>
+      ${opt.map(escapeHtml).join(", ")}
+    </button>
+  `).join("");
+
+  app.innerHTML = `
+    <div class="round-header">ROUND ${cur.round_number} / ${rounds.length} — MATCHING</div>
+    <div class="matching-facts-list">${factsHtml}</div>
+    <div class="matching-options" id="vote-options">${optionsHtml}</div>
+    <p style="font-size:0.9rem; opacity:0.85; margin-top:8px;">Tap your guess. Once locked in, you can't change it.</p>
+  `;
+
+  document.querySelectorAll("#vote-options button").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const idx = parseInt(btn.getAttribute("data-idx"), 10);
+      // Disable all buttons immediately to prevent double-click
+      document.querySelectorAll("#vote-options button").forEach(b => b.disabled = true);
+      try {
+        await submitMatchingVote(idx);
+        await refresh();
+      } catch (err) {
+        document.querySelectorAll("#vote-options button").forEach(b => b.disabled = false);
         alert("Oops: " + err.message);
       }
     });
@@ -1133,5 +1328,5 @@ async function refresh() {
 })();
 </script>
 </body>
-<!-- Sweden -->
+<!-- Denmark -->
 </html>
