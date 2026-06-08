@@ -96,6 +96,52 @@
   button.matching-option:disabled { opacity: 0.5; cursor: not-allowed; }
   .matching-option-label { font-size: 0.78rem; color: #6d28d9; font-weight: 800; margin-bottom: 4px; letter-spacing: 0.1em; }
   .matching-option.correct .matching-option-label { color: #065f46; }
+
+   /* Leaderboard / podium */
+  .podium { display: flex; flex-direction: column; gap: 14px; margin: 24px 0; }
+  .podium-row {
+    background: rgba(255,255,255,0.95); color: #1f2937; padding: 18px 22px;
+    border-radius: 16px; box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+    display: flex; align-items: center; gap: 16px;
+    animation: podiumPop 0.5s ease backwards;
+  }
+  .podium-row.rank-1 {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    border: 3px solid #f59e0b;
+    animation-delay: 0.3s;
+  }
+  .podium-row.rank-2 {
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+    border: 3px solid #9ca3af;
+    animation-delay: 0.15s;
+  }
+  .podium-row.rank-3 {
+    background: linear-gradient(135deg, #fed7aa, #fdba74);
+    border: 3px solid #c2410c;
+    animation-delay: 0s;
+  }
+  .podium-medal { font-size: 2.2rem; flex-shrink: 0; }
+  .podium-info { flex-grow: 1; text-align: left; }
+  .podium-rank-label { font-size: 0.85rem; font-weight: 800; letter-spacing: 0.1em; color: #6d28d9; margin-bottom: 4px; }
+  .podium-names { font-size: 1.15rem; font-weight: 800; color: #1f2937; line-height: 1.3; }
+  .podium-score { font-size: 1.5rem; font-weight: 900; color: #6d28d9; flex-shrink: 0; }
+  .podium-row.rank-1 .podium-score { color: #92400e; }
+  .podium-row.rank-2 .podium-score { color: #4b5563; }
+  .podium-row.rank-3 .podium-score { color: #9a3412; }
+  @keyframes podiumPop {
+    0% { transform: translateY(20px) scale(0.95); opacity: 0; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  /* Player end screen */
+  .my-result {
+    background: rgba(255,255,255,0.95); color: #1f2937; padding: 24px 20px;
+    border-radius: 16px; margin: 20px 0; box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+    text-align: center;
+  }
+  .my-result h2 { color: #6d28d9; margin-bottom: 8px; }
+  .my-result-rank { font-size: 1.4rem; font-weight: 800; margin: 12px 0; }
+  .my-result-score { font-size: 2rem; font-weight: 900; color: #6d28d9; margin: 8px 0; }
+  .my-result-score-label { font-size: 0.9rem; color: #6b7280; margin-top: 4px; }
  
   a { text-decoration: none; }
 </style>
@@ -574,6 +620,62 @@ async function advanceToNextRound() {
   lastRenderKey = "";
   await refresh();
 }
+
+ // Compute leaderboard from cached players + votes (queries DB for all votes once).
+async function computeLeaderboard() {
+  const allVotes = await sbSelect("votes",
+    `select=player_id,is_correct&room_code=eq.${roomCode}&is_correct=eq.true`);
+
+  // Score per player
+  const scoreByPlayer = {};
+  for (const p of players) scoreByPlayer[p.id] = 0;
+  for (const v of allVotes) {
+    if (scoreByPlayer.hasOwnProperty(v.player_id)) scoreByPlayer[v.player_id]++;
+  }
+
+  // Build sorted list of {player, score}
+  const entries = players.map(p => ({ player: p, score: scoreByPlayer[p.id] || 0 }));
+  entries.sort((a, b) => b.score - a.score);
+  return entries;
+}
+
+// Group leaderboard entries into ranks (1, 2, 3) handling ties.
+// Returns up to 3 rank groups; ties share a rank.
+// e.g., [8, 7, 7, 6, 6, 5] -> [[8: A], [7: B,C], [6: D,E]]
+function groupTopThreeRanks(entries) {
+  if (entries.length === 0) return [];
+  const ranks = [];
+  let currentRank = [];
+  let currentScore = null;
+  for (const e of entries) {
+    if (currentScore === null || e.score === currentScore) {
+      currentRank.push(e);
+      currentScore = e.score;
+    } else {
+      ranks.push({ score: currentScore, players: currentRank });
+      if (ranks.length >= 3) break;
+      currentRank = [e];
+      currentScore = e.score;
+    }
+  }
+  if (currentRank.length > 0 && ranks.length < 3) {
+    ranks.push({ score: currentScore, players: currentRank });
+  }
+  return ranks;
+}
+
+// Reset votes/players but keep configured rounds (host's "Play again" option).
+async function playAgainSameConfig() {
+  if (!confirm("Play again with the same configured game? This wipes all players and votes, but keeps the rounds. Players will need to rejoin.")) return;
+  await sbDelete("votes", `room_code=eq.${roomCode}`);
+  await sbDelete("walkin_submissions", `room_code=eq.${roomCode}`);
+  await sbDelete("players", `room_code=eq.${roomCode}`);
+  await sbUpdate("rooms", `room_code=eq.${roomCode}`, {
+    phase: "lobby", current_round_number: 0, round_phase: "voting", walkin_count: 0
+  });
+  lastRenderKey = "";
+  await refresh();
+}
  
 // ============================================================
 //  HOST BUILDER UI
@@ -962,15 +1064,50 @@ function renderHostRevealingMatching(cur) {
 // ============================================================
 //  HOST FINISHED UI — placeholder until Phase 6
 // ============================================================
-function renderHostFinishedPlaceholder() {
+async function renderHostFinished() {
+  const entries = await computeLeaderboard();
+  const ranks = groupTopThreeRanks(entries);
+
+  const medals = ["🥇", "🥈", "🥉"];
+  const rankLabels = ["1st place", "2nd place", "3rd place"];
+
+  let podiumHtml = "";
+  if (ranks.length === 0) {
+    podiumHtml = `<div class="card" style="text-align:center;"><p>No players in this game.</p></div>`;
+  } else {
+    podiumHtml = `<div class="podium">` + ranks.map((r, i) => {
+      const names = r.players.map(p => escapeHtml(p.player.name)).join(", ");
+      const tieNote = r.players.length > 1 ? ` <span style="font-size:0.85rem; color:#6b7280; font-weight:500;">(tied)</span>` : "";
+      return `
+        <div class="podium-row rank-${i + 1}">
+          <div class="podium-medal">${medals[i]}</div>
+          <div class="podium-info">
+            <div class="podium-rank-label">${rankLabels[i]}${tieNote}</div>
+            <div class="podium-names">${names}</div>
+          </div>
+          <div class="podium-score">${r.score}</div>
+        </div>
+      `;
+    }).join("") + `</div>`;
+  }
+
+  const totalRounds = rounds.length;
+
   app.innerHTML = `
-    <h1>🏁 Game finished</h1>
-    <p>Leaderboard will live here in Phase 6.</p>
+    <h1>🏁 Game over!</h1>
+    <p>Top results from ${totalRounds} round${totalRounds === 1 ? "" : "s"}.</p>
+    ${podiumHtml}
     <div class="btn-row">
-      <button class="btn-white" id="reset-link">Reset this room</button>
+      <button class="btn-white" id="play-again-btn">🔁 Play again (same config)</button>
+      <button class="btn-ghost" id="reset-link">🧹 Reset room</button>
     </div>
+    <br/>
+    <button class="toggle-link" id="new-party-link">🆕 Start a new party</button>
   `;
+
+  document.getElementById("play-again-btn").addEventListener("click", playAgainSameConfig);
   document.getElementById("reset-link").addEventListener("click", fullReset);
+  document.getElementById("new-party-link").addEventListener("click", startNewParty);
 }
 
 // ============================================================
@@ -1002,8 +1139,8 @@ function renderHost() {
 
   if (room.phase === "lobby")    return renderHostLobby();
   if (room.phase === "playing")  return renderHostPlaying();
-  if (room.phase === "finished") return renderHostFinishedPlaceholder();
-
+  if (room.phase === "finished") return renderHostFinished();
+ 
   app.innerHTML = `<p>Unknown phase: ${escapeHtml(room.phase)}</p>`;
 }
 // ============================================================
@@ -1222,12 +1359,59 @@ async function renderPlayerPlaying() {
   });
 }
 
-function renderPlayerFinishedPlaceholder() {
-  app.innerHTML = `
-    <h1>🎊 Thanks for playing!</h1>
-    <p>Leaderboard is on the host's screen.</p>
-  `;
+async function renderPlayerFinished() {
   playerJoinRendered = false;
+
+  const myId = localStorage.getItem(`playerId_${roomCode}`);
+  const me = players.find(p => p.id === myId);
+
+  if (!me) {
+    // No player record (e.g., spectator who never joined, or got reset)
+    app.innerHTML = `
+      <h1>🎊 Game over!</h1>
+      <p>Leaderboard is on the host's screen.</p>
+    `;
+    return;
+  }
+
+  const entries = await computeLeaderboard();
+  const myEntry = entries.find(e => e.player.id === myId);
+  const myScore = myEntry ? myEntry.score : 0;
+  const totalRounds = rounds.length;
+
+  // Determine my rank with tie semantics
+  // Rank = 1 + (number of unique scores strictly greater than mine)
+  const higherScores = new Set();
+  for (const e of entries) {
+    if (e.score > myScore) higherScores.add(e.score);
+  }
+  const myRank = higherScores.size + 1;
+
+  // How many people share my score (for "tied with N others")
+  const tiedCount = entries.filter(e => e.score === myScore).length - 1;
+
+  let rankLine;
+  if (myRank === 1) rankLine = `🥇 1st place${tiedCount > 0 ? ` (tied with ${tiedCount} other${tiedCount === 1 ? "" : "s"})` : "!"}`;
+  else if (myRank === 2) rankLine = `🥈 2nd place${tiedCount > 0 ? ` (tied with ${tiedCount} other${tiedCount === 1 ? "" : "s"})` : ""}`;
+  else if (myRank === 3) rankLine = `🥉 3rd place${tiedCount > 0 ? ` (tied with ${tiedCount} other${tiedCount === 1 ? "" : "s"})` : ""}`;
+  else rankLine = `Finished ${myRank}${ordinalSuffix(myRank)}${tiedCount > 0 ? ` (tied with ${tiedCount} other${tiedCount === 1 ? "" : "s"})` : ""}`;
+
+  app.innerHTML = `
+    <h1>🎊 Game over!</h1>
+    <div class="my-result">
+      <h2>${escapeHtml(me.name)}</h2>
+      <div class="my-result-score">${myScore}</div>
+      <div class="my-result-score-label">out of ${totalRounds}</div>
+      <div class="my-result-rank">${rankLine}</div>
+    </div>
+    <p style="font-size:0.9rem; opacity:0.85;">Full leaderboard is on the host's screen 👀</p>
+  `;
+}
+
+function ordinalSuffix(n) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return s[(v - 20) % 10] || s[v] || s[0];
 }
 
 function renderPlayer() {
@@ -1269,7 +1453,7 @@ function renderPlayer() {
     return;
   }
   if (room.phase === "finished") {
-    renderPlayerFinishedPlaceholder();
+    renderPlayerFinished();
     return;
   }
 
@@ -1328,5 +1512,5 @@ async function refresh() {
 })();
 </script>
 </body>
-<!-- Denmark -->
+<!-- Finland -->
 </html>
