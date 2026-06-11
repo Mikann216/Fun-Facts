@@ -255,6 +255,10 @@ let lastRenderKey = "";
 let builderRendered = false;
 let playerJoinRendered = false;
 
+// Hardcoded: first N rounds are practice/test rounds, excluded from leaderboard scoring.
+// Set to 0 to disable (all rounds count toward scoring).
+const TEST_ROUND_COUNT = 2;
+ 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 }
@@ -667,8 +671,12 @@ async function advanceToNextRound() {
 
  // Compute leaderboard from cached players + votes (queries DB for all votes once).
 async function computeLeaderboard() {
-  const allVotes = await sbSelect("votes",
-    `select=player_id,is_correct&room_code=eq.${roomCode}&is_correct=eq.true`);
+  // Build query — exclude votes from test rounds (round_number <= TEST_ROUND_COUNT)
+  let query = `select=player_id,is_correct,round_number&room_code=eq.${roomCode}&is_correct=eq.true`;
+  if (TEST_ROUND_COUNT > 0) {
+    query += `&round_number=gt.${TEST_ROUND_COUNT}`;
+  }
+  const allVotes = await sbSelect("votes", query);
 
   // Score per player
   const scoreByPlayer = {};
@@ -1139,7 +1147,7 @@ async function renderHostFinished() {
     }).join("") + `</div>`;
   }
 
-  const totalRounds = rounds.length;
+  const totalRounds = rounds.length - TEST_ROUND_COUNT;
 
   app.innerHTML = `
     <h1>🏁 Game over!</h1>
@@ -1432,7 +1440,7 @@ async function renderPlayerFinished() {
   const entries = await computeLeaderboard();
   const myEntry = entries.find(e => e.player.id === myId);
   const myScore = myEntry ? myEntry.score : 0;
-  const totalRounds = rounds.length;
+  const totalRounds = rounds.length - TEST_ROUND_COUNT;
 
   // Determine my rank with tie semantics
   // Rank = 1 + (number of unique scores strictly greater than mine)
